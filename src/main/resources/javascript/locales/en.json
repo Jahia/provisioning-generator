@@ -1,0 +1,13 @@
+{
+  "label": {
+    "settings": {
+      "title": "Provisioning generator setting"
+    },
+    "action": {
+      "title": "Provisioning generator - How to extend the ui ?"
+    },
+    "appsAccordion": {
+      "title": "Provisioning generator"
+    }
+  }
+}

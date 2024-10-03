@@ -19,11 +19,11 @@
         <tag>HEAD</tag>
     </scm>
     <properties>
-        <jahia-depends>default</jahia-depends>
+        <jahia.plugin.version>6.10</jahia.plugin.version>
         <jahia-module-type>system</jahia-module-type>
-        <require-capability>osgi.extender;filter:="(osgi.extender=org.jahia.bundles.blueprint.extender.config)"</require-capability>
+        <require-capability>osgi.extender;filter:="(osgi.extender=org.jahia.bundles.blueprint.extender.config)"
+        </require-capability>
     </properties>
-
 
     <repositories>
         <repository>
@@ -39,8 +39,7 @@
             </snapshots>
         </repository>
     </repositories>
-    
-    
+
     <dependencies>
         <dependency>
             <groupId>org.apache.karaf.shell</groupId>
@@ -55,7 +54,6 @@
         </dependency>
     </dependencies>
 
-
     <build>
         <plugins>
             <plugin>
@@ -64,18 +62,9 @@
                 <extensions>true</extensions>
                 <configuration>
                     <instructions>
-                        <Bundle-RequiredExecutionEnvironment>JavaSE-11</Bundle-RequiredExecutionEnvironment>
                         <Karaf-Commands>*</Karaf-Commands>
                         <_dsannotations>*</_dsannotations>
                     </instructions>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <version>2.3.2</version>
-                <configuration>
-                    <release>11</release>
                 </configuration>
             </plugin>
         </plugins>

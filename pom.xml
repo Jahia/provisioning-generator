@@ -9,14 +9,14 @@
     <groupId>org.jahia.community</groupId>
     <artifactId>provisioning-generator</artifactId>
     <name>Provisioning generator</name>
-    <version>1.0.1-SNAPSHOT</version>
+    <version>1.0.1</version>
     <packaging>bundle</packaging>
     <description>This is the custom module (Provisioning generator) for running on a Jahia server.</description>
     <scm>
         <connection>scm:git:git@github.com:Jahia/provisioning-generator.git</connection>
         <developerConnection>scm:git:git@github.com:Jahia/provisioning-generator.git</developerConnection>
         <url>scm:git:git@github.com:Jahia/provisioning-generator.git</url>
-        <tag>HEAD</tag>
+        <tag>1_0_1</tag>
     </scm>
     <properties>
         <jahia.plugin.version>6.10</jahia.plugin.version>

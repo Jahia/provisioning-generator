@@ -59,7 +59,7 @@ public class GenerateCommand implements Action {
                         ServicesRegistry.getInstance().getJahiaTemplateManagerService().getAvailableTemplatePackages().stream()
                                 .filter((module) -> (module.isActiveVersion())).forEachOrdered((module) -> {
                             LOGGER.info(module.getBundleKey());
-                            final String query = String.format(QUERY, module.getGroupId(), module.getBundle().getSymbolicName(), module.getVersion().toString());
+                            final String query = String.format(QUERY, module.getGroupId(), module.getBundle().getSymbolicName(), module.getBundle().getVersion().toString());
                             try {
                                 final NodeIterator nodeIterator = session.getWorkspace().getQueryManager().createQuery(query, Query.JCR_SQL2).execute().getNodes();
                                 while (nodeIterator.hasNext()) {

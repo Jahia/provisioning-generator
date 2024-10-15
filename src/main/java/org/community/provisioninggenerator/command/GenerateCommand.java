@@ -40,7 +40,7 @@ public class GenerateCommand implements Action {
 
     @Override
     public Object execute() throws Exception {
-        SettingsBean settingsBean = BundleUtils.getOsgiService(SettingsBean.class, null);
+        final SettingsBean settingsBean = BundleUtils.getOsgiService(SettingsBean.class, null);
         final String zipPath = settingsBean.getTmpContentDiskPath() + "/modulesExport" + System.currentTimeMillis() + ".zip";
 
         BundleUtils.getOsgiService(JCRTemplate.class, null).doExecuteWithSystemSessionAsUser(null, Constants.EDIT_WORKSPACE, null, session -> {

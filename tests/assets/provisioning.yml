@@ -1,0 +1,7 @@
+- karafCommand: "log:log 'START - provisioning'"
+
+- karafCommand: "log:log 'START - Install provisioning-generator dependencies'"
+# jackson-dataformat-yaml and karaf.shell.console are provided by Jahia — no extra bundles needed
+- karafCommand: "log:log 'END - Install provisioning-generator dependencies'"
+
+- karafCommand: "log:log 'END - provisioning'"

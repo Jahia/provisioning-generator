@@ -1,0 +1,120 @@
+.pg_container {
+  font-family: 'Nunito Sans', sans-serif;
+  color: var(--color-dark, #131c21);
+  max-width: 720px;
+  padding: var(--spacing-large, 24px);
+}
+
+.pg_header h2 {
+  margin: 0;
+  padding: 0;
+  margin-left: 25px;
+  font-size: 25px;
+  line-height: 85px;
+  width: 80%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: none;
+}
+
+.pg_description {
+  margin-bottom: var(--spacing-large, 24px);
+  padding: var(--spacing-medium, 16px);
+  background: var(--color-light, #fdfdfd);
+  border-left: 3px solid var(--color-accent, #00a0e3);
+  border-radius: 0 var(--radius, 4px) var(--radius, 4px) 0;
+}
+
+.pg_alert {
+  padding: var(--spacing-small, 8px) var(--spacing-medium, 16px);
+  border-radius: var(--radius, 4px);
+  font-size: 13px;
+  margin-bottom: var(--spacing-medium, 16px);
+  border: 1px solid transparent;
+
+  &--success {
+    background: #eaf7eb;
+    border-color: var(--color-success, #6abb6d);
+    color: var(--color-success_dark, #267729);
+  }
+
+  &--error {
+    background: #fdecea;
+    border-color: var(--color-danger, #f44053);
+    color: var(--color-danger_dark, #840d0f);
+  }
+}
+
+.pg_actions {
+  margin-top: var(--spacing-medium, 16px);
+}
+
+.pg_loading {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-medium, 16px);
+  padding: var(--spacing-medium, 16px) 0;
+}
+
+.pg_loading_text {
+  font-size: 14px;
+  color: var(--color-gray, #7a7f88);
+}
+
+.pg_archive_section {
+  margin-top: var(--spacing-large, 24px);
+  padding-top: var(--spacing-large, 24px);
+  border-top: 1px solid var(--color-gray_light, #dadada);
+}
+
+.pg_created_at {
+  margin: 0 0 var(--spacing-medium, 16px);
+  font-size: 13px;
+  color: var(--color-gray, #7a7f88);
+}
+
+.pg_archive_actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-medium, 16px);
+}
+
+.pg_download_link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-small, 8px);
+  padding: var(--spacing-small, 8px) var(--spacing-medium, 16px);
+  background: var(--color-accent, #00a0e3);
+  color: #fff;
+  border-radius: var(--radius, 4px);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: 'Nunito Sans', sans-serif;
+  transition: background 0.15s;
+
+  &:hover {
+    background: var(--color-accent_dark, #0082bb);
+  }
+}
+
+.pg_delete_btn {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--spacing-small, 8px) var(--spacing-medium, 16px);
+  background: none;
+  border: 1px solid var(--color-danger, #f44053);
+  border-radius: var(--radius, 4px);
+  color: var(--color-danger, #f44053);
+  font-size: 14px;
+  font-weight: 600;
+  font-family: 'Nunito Sans', sans-serif;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+
+  &:hover {
+    background: var(--color-danger, #f44053);
+    color: #fff;
+  }
+}

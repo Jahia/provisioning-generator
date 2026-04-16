@@ -1,0 +1,15 @@
+{
+  "label": {
+    "menu_entry": "Provisioning Generator",
+    "title": "Provisioning Generator",
+    "description": "Generate a ZIP archive of all active Jahia modules, ready to be used with the provisioning API.",
+    "generate": "Generate archive",
+    "generating": "Generating archive, please wait…",
+    "success": "Archive generated successfully.",
+    "error": "An error occurred while generating the archive.",
+    "download": "Download provisioning-export.zip",
+    "delete": "Delete archive",
+    "deleting": "Deleting archive…",
+    "createdAt": "Generated on {{date}}"
+  }
+}

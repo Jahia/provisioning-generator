@@ -29,6 +29,7 @@ public class ProvisioningGeneratorMutationExtension {
     private static final Logger LOGGER = LoggerFactory.getLogger(ProvisioningGeneratorMutationExtension.class);
     static final String JCR_FOLDER = "provisioning-generator";
     static final String JCR_FILENAME = "provisioning-export.zip";
+    static final String ARCHIVE_JCR_PATH = String.join("/", "", "sites", "systemsite", "files", JCR_FOLDER, JCR_FILENAME);
 
     private ProvisioningGeneratorMutationExtension() {
     }
@@ -51,7 +52,7 @@ public class ProvisioningGeneratorMutationExtension {
             zipFile = service.generate(settingsBean.getTmpContentDiskPath());
             writeToJcr(zipFile);
             return Boolean.TRUE;
-        } catch (Exception e) {
+        } catch (RepositoryException e) {
             LOGGER.error("Error generating provisioning archive", e);
             return Boolean.FALSE;
         } finally {
@@ -73,7 +74,7 @@ public class ProvisioningGeneratorMutationExtension {
         try {
             BundleUtils.getOsgiService(JCRTemplate.class, null).doExecuteWithSystemSessionAsUser(
                     null, Constants.EDIT_WORKSPACE, null, session -> {
-                        final String nodePath = "/sites/systemsite/files/" + JCR_FOLDER + "/" + JCR_FILENAME;
+                        final String nodePath = ARCHIVE_JCR_PATH;
                         try {
                             if (session.nodeExists(nodePath)) {
                                 session.getNode(nodePath).remove();
@@ -85,13 +86,13 @@ public class ProvisioningGeneratorMutationExtension {
                         return null;
                     });
             return Boolean.TRUE;
-        } catch (Exception e) {
+        } catch (RepositoryException e) {
             LOGGER.error("Error deleting provisioning archive", e);
             return Boolean.FALSE;
         }
     }
 
-    private static void writeToJcr(File zipFile) throws Exception {
+    private static void writeToJcr(File zipFile) throws RepositoryException {
         BundleUtils.getOsgiService(JCRTemplate.class, null).doExecuteWithSystemSessionAsUser(
                 null, Constants.EDIT_WORKSPACE, null, session -> {
                     try {

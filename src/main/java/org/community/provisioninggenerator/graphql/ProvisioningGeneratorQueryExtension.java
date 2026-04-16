@@ -45,9 +45,7 @@ public class ProvisioningGeneratorQueryExtension {
         try {
             return BundleUtils.getOsgiService(JCRTemplate.class, null).doExecuteWithSystemSessionAsUser(
                     null, Constants.EDIT_WORKSPACE, null, session -> {
-                        final String nodePath = "/sites/systemsite/files/"
-                                + ProvisioningGeneratorMutationExtension.JCR_FOLDER + "/"
-                                + ProvisioningGeneratorMutationExtension.JCR_FILENAME;
+                        final String nodePath = ProvisioningGeneratorMutationExtension.ARCHIVE_JCR_PATH;
                         try {
                             if (!session.nodeExists(nodePath)) {
                                 return null;

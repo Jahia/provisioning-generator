@@ -41,7 +41,7 @@ public class ProvisioningGeneratorService {
         return generating;
     }
 
-    public File generate(String tmpContentDiskPath) throws Exception {
+    public File generate(String tmpContentDiskPath) throws RepositoryException {
         generating = true;
         try {
             final String filename = tmpContentDiskPath + "/modulesExport" + System.currentTimeMillis() + ".zip";

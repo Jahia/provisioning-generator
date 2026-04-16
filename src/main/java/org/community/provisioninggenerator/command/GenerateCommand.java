@@ -13,6 +13,7 @@ import org.jahia.api.templates.JahiaTemplateManagerService;
 import org.jahia.data.templates.JahiaTemplatesPackage;
 import org.jahia.osgi.BundleUtils;
 import org.jahia.services.content.JCRNodeWrapper;
+import org.jahia.services.content.JCRSessionWrapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.StreamUtils;
@@ -44,56 +45,11 @@ public class GenerateCommand implements Action {
         final String zipPath = settingsBean.getTmpContentDiskPath() + "/modulesExport" + System.currentTimeMillis() + ".zip";
 
         BundleUtils.getOsgiService(JCRTemplate.class, null).doExecuteWithSystemSessionAsUser(null, Constants.EDIT_WORKSPACE, null, session -> {
+            final String filename = settingsBean.getTmpContentDiskPath() + "/modulesExport" + System.currentTimeMillis() + ".zip";
+            final File file = new File(filename);
             try {
-                //Create the file
-                final String diskPath = settingsBean.getTmpContentDiskPath();
-                final String filename = diskPath + "/modulesExport" + System.currentTimeMillis() + ".zip";
-                final File file = new File(filename);
                 if (file.createNewFile()) {
-
-                    final FileOutputStream os = new FileOutputStream(file);
-
-                    try (ZipOutputStream zipOutputStream = new ZipOutputStream(os)) {
-                        logger.info("Module Export started, this may take some time");
-
-                        final ObjectMapper objectMapper = new ObjectMapper(new YAMLFactory());
-                        final List<BundleInstall> bundleKeys = new ArrayList<>();
-                        BundleUtils.getOsgiService(JahiaTemplateManagerService.class, null).getAvailableTemplatePackages().stream()
-                                .filter(JahiaTemplatesPackage::isActiveVersion).forEachOrdered(module -> {
-                                    logger.info(module.getBundleKey());
-                                    final String query = String.format(QUERY, module.getGroupId(), module.getBundle().getSymbolicName(), module.getBundle().getVersion().toString());
-                                    try {
-                                        final NodeIterator nodeIterator = session.getWorkspace().getQueryManager().createQuery(query, Query.JCR_SQL2).execute().getNodes();
-                                        while (nodeIterator.hasNext()) {
-                                            final JCRNodeWrapper node = (JCRNodeWrapper) nodeIterator.nextNode();
-                                            final String nodeName = node.getName();
-                                            logger.info("Compressing Node: " + nodeName);
-
-                                            final Node fileContent = node.getNode("jcr:content");
-                                            // Add zip entry
-                                            try (InputStream content = fileContent.getProperty("jcr:data").getBinary().getStream()) {
-                                                // Add zip entry
-                                                final byte[] buffer = StreamUtils.copyToByteArray(content);
-                                                final ZipEntry zipEntry = new ZipEntry(nodeName);
-                                                bundleKeys.add(new BundleInstall(nodeName));
-
-                                                zipOutputStream.putNextEntry(zipEntry);
-                                                zipOutputStream.write(buffer);
-                                                zipOutputStream.closeEntry();
-                                            } catch (IOException e) {
-                                                logger.error("Impossible to retrieve module content", e);
-                                            }
-                                        }
-                                    } catch (RepositoryException e) {
-                                        logger.error("Impossible to retrieve module", e);
-                                    }
-                                });
-                        final ZipEntry zipEntry = new ZipEntry("provisionning.yaml");
-                        zipOutputStream.putNextEntry(zipEntry);
-                        zipOutputStream.write(objectMapper.writer().writeValueAsBytes(bundleKeys));
-                        zipOutputStream.closeEntry();
-                        logger.info("Modules Export has been done, the file can be found at:  " + filename);
-                    }
+                    writeZip(file, filename, session);
                 } else if (logger.isErrorEnabled()) {
                     logger.error("Impossible to create file {}", filename);
                 }
@@ -103,5 +59,50 @@ public class GenerateCommand implements Action {
             return null;
         });
         return zipPath;
+    }
+
+    private void writeZip(File file, String filename, JCRSessionWrapper session) throws IOException {
+        final FileOutputStream os = new FileOutputStream(file);
+        try (ZipOutputStream zipOutputStream = new ZipOutputStream(os)) {
+            logger.info("Module Export started, this may take some time");
+            final ObjectMapper objectMapper = new ObjectMapper(new YAMLFactory());
+            final List<BundleInstall> bundleKeys = new ArrayList<>();
+            BundleUtils.getOsgiService(JahiaTemplateManagerService.class, null).getAvailableTemplatePackages().stream()
+                    .filter(JahiaTemplatesPackage::isActiveVersion).forEachOrdered(module -> {
+                        logger.info(module.getBundleKey());
+                        final String query = String.format(QUERY, module.getGroupId(), module.getBundle().getSymbolicName(), module.getBundle().getVersion().toString());
+                        try {
+                            final NodeIterator nodeIterator = session.getWorkspace().getQueryManager().createQuery(query, Query.JCR_SQL2).execute().getNodes();
+                            while (nodeIterator.hasNext()) {
+                                compressNode((JCRNodeWrapper) nodeIterator.nextNode(), zipOutputStream, bundleKeys);
+                            }
+                        } catch (RepositoryException e) {
+                            logger.error("Impossible to retrieve module", e);
+                        }
+                    });
+            final ZipEntry zipEntry = new ZipEntry("provisionning.yaml");
+            zipOutputStream.putNextEntry(zipEntry);
+            zipOutputStream.write(objectMapper.writer().writeValueAsBytes(bundleKeys));
+            zipOutputStream.closeEntry();
+            logger.info("Modules Export has been done, the file can be found at: {}", filename);
+        }
+    }
+
+    private void compressNode(JCRNodeWrapper node, ZipOutputStream zipOutputStream, List<BundleInstall> bundleKeys) {
+        final String nodeName = node.getName();
+        logger.info("Compressing Node: {}", nodeName);
+        try {
+            final Node fileContent = node.getNode("jcr:content");
+            try (InputStream content = fileContent.getProperty("jcr:data").getBinary().getStream()) {
+                final byte[] buffer = StreamUtils.copyToByteArray(content);
+                final ZipEntry zipEntry = new ZipEntry(nodeName);
+                bundleKeys.add(new BundleInstall(nodeName));
+                zipOutputStream.putNextEntry(zipEntry);
+                zipOutputStream.write(buffer);
+                zipOutputStream.closeEntry();
+            }
+        } catch (IOException | RepositoryException e) {
+            logger.error("Impossible to retrieve module content", e);
+        }
     }
 }

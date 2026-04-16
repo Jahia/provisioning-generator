@@ -5,7 +5,7 @@ import org.jahia.settings.SettingsBean;
 public class BundleInstall {
 
     private final String installBundle;
-    private final boolean autoStart = true;
+    private static final boolean AUTO_START = true;
     private final String prefix = "file://" + SettingsBean.getInstance().getTmpContentDiskPath() + "/";
 
     public BundleInstall(String installBundle) {
@@ -17,7 +17,7 @@ public class BundleInstall {
     }
 
     public boolean isAutoStart() {
-        return autoStart;
+        return AUTO_START;
     }
 
 }

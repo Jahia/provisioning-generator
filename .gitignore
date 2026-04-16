@@ -1,15 +1,30 @@
-# Eclipse
+/.claude
 /.classpath
 /.project
 /.settings
-
-# Intellij
 .idea
 *.iml
 *.ipr
-
-# Maven
 target
+/nbactions.xml
 
-# Jahia DX Studio
-repository.xml.generated
+/pom.xml.tag
+/release.properties
+/pom.xml.releaseBackup
+/pom.xml.next
+
+# Node / frontend build
+node_modules
+node
+yarn-error.log
+.yarn-integrity
+# Webpack chunks (only the main bundle is committed)
+src/main/resources/javascript/apps
+
+.env
+**/install-state.gz
+.codegraph
+
+**/.pnp.cjs
+**/.pnp.loader.mjs
+

@@ -2,15 +2,11 @@ import {DocumentNode} from 'graphql';
 
 describe('Provisioning Generator', () => {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const mountVfs: DocumentNode = require('graphql-tag/loader!../fixtures/graphql/mutation/mountVfs.graphql');
+    const generateArchive: DocumentNode = require('graphql-tag/loader!../fixtures/graphql/mutation/generateArchive.graphql');
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const getChildrenByPath: DocumentNode = require('graphql-tag/loader!../fixtures/graphql/query/getChildrenByPath.graphql');
-
-    const hasZipFile = (nodes: Array<{name: string}>) => nodes.some(n => n.name.endsWith('.zip'));
-
-    const MOUNT_NAME = 'provisioningGeneratorTest';
-    const MOUNT_JCR_PATH = `/mounts/${MOUNT_NAME}-mount`;
-    const MOUNT_CONTENT_PATH = `/sites/systemsite/files/${MOUNT_NAME}`;
+    const deleteArchive: DocumentNode = require('graphql-tag/loader!../fixtures/graphql/mutation/deleteArchive.graphql');
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const getArchiveInfo: DocumentNode = require('graphql-tag/loader!../fixtures/graphql/query/getArchiveInfo.graphql');
 
     const graphqlRequestOptions = {
         method: 'POST' as const,
@@ -25,22 +21,18 @@ describe('Provisioning Generator', () => {
 
     before(() => {
         cy.login();
-        // Best-effort cleanup of any leftover VFS mount from a previous run
+        // Best-effort cleanup of any archive left over from a previous run
         cy.request({
             ...graphqlRequestOptions,
-            body: {query: `mutation { jcr(workspace: EDIT) { deleteNode(pathOrId: "${MOUNT_JCR_PATH}") } }`}
+            body: {query: 'mutation { provisioningGeneratorDelete }'}
         });
     });
 
     after(() => {
-        // Unmount and remove the VFS mount point configuration node
+        // Clean up the archive created during the test run
         cy.request({
             ...graphqlRequestOptions,
-            body: {query: `mutation { admin { mountPoint { unmount(pathOrId: "${MOUNT_JCR_PATH}") } } }`}
-        });
-        cy.request({
-            ...graphqlRequestOptions,
-            body: {query: `mutation { jcr(workspace: EDIT) { deleteNode(pathOrId: "${MOUNT_JCR_PATH}") } }`}
+            body: {query: 'mutation { provisioningGeneratorDelete }'}
         });
     });
 
@@ -57,52 +49,47 @@ describe('Provisioning Generator', () => {
         }).its('status').should('eq', 200);
     });
 
-    it('generates a provisioning archive for active modules', () => {
+    it('archive info returns null when no archive exists', () => {
+        cy.apollo({query: getArchiveInfo})
+            .its('data.provisioningGeneratorArchiveInfo')
+            .should('be.null');
+    });
+
+    it('isGenerating returns false when idle', () => {
         cy.request({
-            method: 'POST',
-            url: '/modules/api/provisioning',
-            headers: {'Content-Type': 'application/yaml'},
-            auth: {
-                username: Cypress.env('SUPER_USER_LOGIN') || 'root',
-                password: Cypress.env('SUPER_USER_PASSWORD') || 'root1234'
-            },
-            body: '- karafCommand: "provisioning-generator:generate"'
-        }).its('status').should('eq', 200);
+            ...graphqlRequestOptions,
+            body: {query: 'query { provisioningGeneratorIsGenerating }'}
+        }).its('body.data.provisioningGeneratorIsGenerating').should('eq', false);
+    });
 
-        // Mount /var/jahia/content/tmp as a VFS to browse the generated archive
-        cy.apollo({mutation: mountVfs});
+    it('generates a provisioning archive and exposes a creation date', () => {
+        cy.apollo({mutation: generateArchive})
+            .its('data.provisioningGeneratorGenerate')
+            .should('eq', true);
 
-        // The VFS provider activates asynchronously — retry until ZIP files appear
-        cy.waitUntil(
-            () => cy.apollo({query: getChildrenByPath, variables: {path: MOUNT_CONTENT_PATH, childrenTypes: ['jnt:file']}})
-                .its('data.jcr.nodeByPath.children.nodes')
-                .then(hasZipFile),
-            {timeout: 15000, interval: 1000, errorMsg: 'No ZIP files found in VFS mount after timeout'}
-        );
+        cy.apollo({query: getArchiveInfo})
+            .its('data.provisioningGeneratorArchiveInfo.createdAt')
+            .should('be.a', 'string')
+            .and('match', /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
     });
 
     it('generate command can be run multiple times without errors', () => {
-        const script = '- karafCommand: "provisioning-generator:generate"';
-        cy.request({
-            method: 'POST',
-            url: '/modules/api/provisioning',
-            headers: {'Content-Type': 'application/yaml'},
-            auth: {
-                username: Cypress.env('SUPER_USER_LOGIN') || 'root',
-                password: Cypress.env('SUPER_USER_PASSWORD') || 'root1234'
-            },
-            body: script
-        }).its('status').should('eq', 200);
+        cy.apollo({mutation: generateArchive})
+            .its('data.provisioningGeneratorGenerate')
+            .should('eq', true);
 
-        cy.request({
-            method: 'POST',
-            url: '/modules/api/provisioning',
-            headers: {'Content-Type': 'application/yaml'},
-            auth: {
-                username: Cypress.env('SUPER_USER_LOGIN') || 'root',
-                password: Cypress.env('SUPER_USER_PASSWORD') || 'root1234'
-            },
-            body: script
-        }).its('status').should('eq', 200);
+        cy.apollo({mutation: generateArchive})
+            .its('data.provisioningGeneratorGenerate')
+            .should('eq', true);
+    });
+
+    it('deletes the provisioning archive', () => {
+        cy.apollo({mutation: deleteArchive})
+            .its('data.provisioningGeneratorDelete')
+            .should('eq', true);
+
+        cy.apollo({query: getArchiveInfo})
+            .its('data.provisioningGeneratorArchiveInfo')
+            .should('be.null');
     });
 });

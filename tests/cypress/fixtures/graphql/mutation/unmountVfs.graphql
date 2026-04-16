@@ -1,7 +1,0 @@
-mutation unmountVfs($pathOrId: String!) {
-    admin {
-        mountPoint {
-            unmount(pathOrId: $pathOrId)
-        }
-    }
-}

@@ -1,7 +1,0 @@
-mutation mountVfs {
-    admin {
-        mountPoint {
-            addVfs(name: "provisioningGeneratorTest", rootPath: "/var/jahia/content/tmp", mountPointRefPath: "/sites/systemsite/files")
-        }
-    }
-}

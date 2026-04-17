@@ -1,5 +1,3 @@
-import {DocumentNode} from "graphql";
-
 describe('Provisioning Generator – UI', () => {
     const adminPath = '/jahia/administration/provisioningGenerator';
 

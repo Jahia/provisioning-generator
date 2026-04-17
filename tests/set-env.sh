@@ -1,11 +1,14 @@
 #!/bin/bash
 
 if [[ -f .env ]]; then
+  set -a
   source .env
-  export $(cat .env | sed 's/=.*//g'| xargs)
+  set +a
 else
   source .env.example
+  set -a
   export $(cat .env.example | sed 's/=.*//g'| xargs)
+  set +a
 fi
 JAHIA_VERSION=${JAHIA_VERSION:-LATEST}
 JAHIA_IMAGE=${JAHIA_IMAGE:-ghcr.io/jahia/jahia-ee-dev:8-SNAPSHOT}

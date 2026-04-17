@@ -86,7 +86,7 @@ public class ProvisioningGeneratorService {
                             logger.error("Impossible to retrieve module", e);
                         }
                     });
-            final ZipEntry zipEntry = new ZipEntry("provisionning.yaml");
+            final ZipEntry zipEntry = new ZipEntry("provisioning.yaml");
             zipOutputStream.putNextEntry(zipEntry);
             zipOutputStream.write(objectMapper.writer().writeValueAsBytes(bundleKeys));
             zipOutputStream.closeEntry();

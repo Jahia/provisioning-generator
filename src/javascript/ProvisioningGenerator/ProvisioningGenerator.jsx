@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {useMutation, useQuery} from '@apollo/client';
 import {useTranslation} from 'react-i18next';
 import {Button, Loader, Typography} from '@jahia/moonstone';
@@ -22,6 +22,7 @@ const formatDate = isoString => {
 export const ProvisioningGeneratorAdmin = () => {
     const {t} = useTranslation('provisioning-generator');
     const [generateStatus, setGenerateStatus] = useState(null);
+    const generateStatusRef = useRef(null);
 
     const {data: infoData, refetch: refetchInfo, startPolling, stopPolling} = useQuery(GET_ARCHIVE_INFO, {
         fetchPolicy: 'network-only'
@@ -62,6 +63,8 @@ export const ProvisioningGeneratorAdmin = () => {
             console.error('Failed to generate provisioning archive:', err);
             setGenerateStatus('error');
         }
+
+        setTimeout(() => generateStatusRef.current?.focus(), 50);
     };
 
     const handleDelete = async () => {
@@ -73,8 +76,25 @@ export const ProvisioningGeneratorAdmin = () => {
         }
     };
 
+    const srStatusMsg = generateStatus === 'success' ? t('label.success') :
+        generateStatus === 'error' ? t('label.error') :
+        generating ? t('label.generating') :
+        deleting ? t('label.deleting') : '';
+
     return (
         <div className={styles.pg_container}>
+            {/* Persistent live region — always in DOM so AT registers it before content changes */}
+            <div
+                ref={generateStatusRef}
+                tabIndex={-1}
+                role={generateStatus === 'error' ? 'alert' : 'status'}
+                aria-live={generateStatus === 'error' ? 'assertive' : 'polite'}
+                aria-atomic="true"
+                className={styles.pg_sr_only}
+            >
+                {srStatusMsg}
+            </div>
+
             <div className={styles.pg_header}>
                 <h2>{t('label.title')}</h2>
             </div>
@@ -84,26 +104,27 @@ export const ProvisioningGeneratorAdmin = () => {
             </div>
 
             {generateStatus === 'success' && (
-                <div className={`${styles.pg_alert} ${styles['pg_alert--success']}`}>
+                <div aria-hidden="true" className={`${styles.pg_alert} ${styles['pg_alert--success']}`}>
                     {t('label.success')}
                 </div>
             )}
             {generateStatus === 'error' && (
-                <div className={`${styles.pg_alert} ${styles['pg_alert--error']}`}>
+                <div aria-hidden="true" className={`${styles.pg_alert} ${styles['pg_alert--error']}`}>
                     {t('label.error')}
                 </div>
             )}
 
             <div className={styles.pg_actions}>
                 {isLoading ? (
-                    <div className={styles.pg_loading}>
-                        <Loader size="big"/>
+                    <div className={styles.pg_loading} role="status" aria-live="polite">
+                        <Loader size="big" aria-hidden="true"/>
                         <Typography className={styles.pg_loading_text}>
                             {generating ? t('label.generating') : t('label.deleting')}
                         </Typography>
                     </div>
                 ) : (
                     <Button
+                        type="button"
                         label={t('label.generate')}
                         variant="primary"
                         isDisabled={isLoading}

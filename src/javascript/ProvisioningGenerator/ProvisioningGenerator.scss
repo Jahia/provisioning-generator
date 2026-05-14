@@ -1,3 +1,15 @@
+.pg_sr_only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .pg_container {
   font-family: 'Nunito Sans', sans-serif;
   color: var(--color-dark, #131c21);
@@ -15,7 +27,6 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  user-select: none;
 }
 
 .pg_description {
@@ -59,7 +70,7 @@
 
 .pg_loading_text {
   font-size: 14px;
-  color: var(--color-gray, #7a7f88);
+  color: #5c6370;
 }
 
 .pg_archive_section {
@@ -71,7 +82,7 @@
 .pg_created_at {
   margin: 0 0 var(--spacing-medium, 16px);
   font-size: 13px;
-  color: var(--color-gray, #7a7f88);
+  color: #5c6370;
 }
 
 .pg_archive_actions {
@@ -85,7 +96,7 @@
   align-items: center;
   gap: var(--spacing-small, 8px);
   padding: var(--spacing-small, 8px) var(--spacing-medium, 16px);
-  background: var(--color-accent, #00a0e3);
+  background: #0077cc;
   color: #fff;
   border-radius: var(--radius, 4px);
   text-decoration: none;
@@ -95,7 +106,13 @@
   transition: background 0.15s;
 
   &:hover {
-    background: var(--color-accent_dark, #0082bb);
+    background: #005fa3;
+  }
+
+  &:focus,
+  &:focus-visible {
+    outline: 2px solid #003d6b;
+    outline-offset: 2px;
   }
 }
 
@@ -104,9 +121,9 @@
   align-items: center;
   padding: var(--spacing-small, 8px) var(--spacing-medium, 16px);
   background: none;
-  border: 1px solid var(--color-danger, #f44053);
+  border: 1px solid #c62828;
   border-radius: var(--radius, 4px);
-  color: var(--color-danger, #f44053);
+  color: #c62828;
   font-size: 14px;
   font-weight: 600;
   font-family: 'Nunito Sans', sans-serif;
@@ -114,7 +131,13 @@
   transition: background 0.15s, color 0.15s;
 
   &:hover {
-    background: var(--color-danger, #f44053);
+    background: #c62828;
     color: #fff;
+  }
+
+  &:focus,
+  &:focus-visible {
+    outline: 2px solid #c62828;
+    outline-offset: 2px;
   }
 }

@@ -8,7 +8,9 @@
     "success": "Archive generated successfully.",
     "error": "An error occurred while generating the archive.",
     "download": "Download provisioning-export.zip",
+    "downloadAriaLabel": "Download provisioning-export.zip (ZIP file)",
     "delete": "Delete archive",
+    "deleteConfirm": "Are you sure you want to delete the provisioning archive? This action cannot be undone.",
     "deleting": "Deleting archive…",
     "createdAt": "Generated on {{date}}"
   }

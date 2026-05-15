@@ -1,4 +1,4 @@
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {useMutation, useQuery} from '@apollo/client';
 import {useTranslation} from 'react-i18next';
 import {Button, Loader, Typography} from '@jahia/moonstone';
@@ -22,7 +22,11 @@ const formatDate = isoString => {
 export const ProvisioningGeneratorAdmin = () => {
     const {t} = useTranslation('provisioning-generator');
     const [generateStatus, setGenerateStatus] = useState(null);
-    const generateStatusRef = useRef(null);
+
+    // SC 2.4.2: update page title on SPA route activation
+    useEffect(() => {
+        document.title = `${t('label.title')} — Jahia Administration`;
+    }, [t]);
 
     const {data: infoData, refetch: refetchInfo, startPolling, stopPolling} = useQuery(GET_ARCHIVE_INFO, {
         fetchPolicy: 'network-only'
@@ -63,11 +67,14 @@ export const ProvisioningGeneratorAdmin = () => {
             console.error('Failed to generate provisioning archive:', err);
             setGenerateStatus('error');
         }
-
-        setTimeout(() => generateStatusRef.current?.focus(), 50);
     };
 
     const handleDelete = async () => {
+        // SC 3.3.4: require explicit confirmation before irreversible delete
+        if (!window.confirm(t('label.deleteConfirm'))) {
+            return;
+        }
+
         setGenerateStatus(null);
         try {
             await deleteArchive();
@@ -76,27 +83,21 @@ export const ProvisioningGeneratorAdmin = () => {
         }
     };
 
-    const srStatusMsg = generateStatus === 'success' ? t('label.success') :
-        generateStatus === 'error' ? t('label.error') :
-        generating ? t('label.generating') :
-        deleting ? t('label.deleting') : '';
-
     return (
         <div className={styles.pg_container}>
-            {/* Persistent live region — always in DOM so AT registers it before content changes */}
-            <div
-                ref={generateStatusRef}
-                tabIndex={-1}
-                role={generateStatus === 'error' ? 'alert' : 'status'}
-                aria-live={generateStatus === 'error' ? 'assertive' : 'polite'}
-                aria-atomic="true"
-                className={styles.pg_sr_only}
-            >
-                {srStatusMsg}
+            {/* SC 4.1.3: two fixed-role live regions always in DOM — AT registers roles at mount */}
+            <div role="status" aria-live="polite" aria-atomic="true" className={styles.pg_sr_only}>
+                {generateStatus === 'success' ? t('label.success') :
+                    generating ? t('label.generating') :
+                    deleting ? t('label.deleting') : ''}
+            </div>
+            <div role="alert" aria-live="assertive" aria-atomic="true" className={styles.pg_sr_only}>
+                {generateStatus === 'error' ? t('label.error') : ''}
             </div>
 
             <div className={styles.pg_header}>
-                <h2>{t('label.title')}</h2>
+                {/* MIN-03: title fallback for ellipsis-truncated heading */}
+                <h2 title={t('label.title')}>{t('label.title')}</h2>
             </div>
 
             <div className={styles.pg_description}>
@@ -116,7 +117,8 @@ export const ProvisioningGeneratorAdmin = () => {
 
             <div className={styles.pg_actions}>
                 {isLoading ? (
-                    <div className={styles.pg_loading} role="status" aria-live="polite">
+                    /* SC 4.1.3: aria-hidden so visible loading text doesn't duplicate the sr-only polite region */
+                    <div className={styles.pg_loading} aria-hidden="true">
                         <Loader size="big" aria-hidden="true"/>
                         <Typography className={styles.pg_loading_text}>
                             {generating ? t('label.generating') : t('label.deleting')}
@@ -139,10 +141,12 @@ export const ProvisioningGeneratorAdmin = () => {
                         {t('label.createdAt', {date: formatDate(archiveInfo.createdAt)})}
                     </p>
                     <div className={styles.pg_archive_actions}>
+                        {/* SC 2.4.4: aria-label adds explicit file-type context for AT users */}
                         <a
                             href={DOWNLOAD_URL}
                             download="provisioning-export.zip"
                             className={styles.pg_download_link}
+                            aria-label={t('label.downloadAriaLabel')}
                         >
                             {t('label.download')}
                         </a>

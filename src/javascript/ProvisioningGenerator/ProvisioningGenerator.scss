@@ -17,10 +17,12 @@
   padding: var(--spacing-large, 24px);
 }
 
-/* MAJ-04: flexbox replaces line-height: 85px for text spacing compliance (SC 1.4.12) */
+/* MAJ-04: flexbox replaces line-height: 85px for text spacing compliance (SC 1.4.12).
+   min-height preserves the original 85px visual header height. */
 .pg_header {
   display: flex;
   align-items: center;
+  min-height: 80px;
 
   h2 {
     margin: 0;

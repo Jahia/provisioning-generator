@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {useMutation, useQuery} from '@apollo/client';
 import {useTranslation} from 'react-i18next';
 import {Button, Loader, Typography} from '@jahia/moonstone';
@@ -22,6 +22,8 @@ const formatDate = isoString => {
 export const ProvisioningGeneratorAdmin = () => {
     const {t} = useTranslation('provisioning-generator');
     const [generateStatus, setGenerateStatus] = useState(null);
+    const generateBtnRef = useRef(null);
+    const prevIsLoadingRef = useRef(false);
 
     // SC 2.4.2: update page title on SPA route activation
     useEffect(() => {
@@ -53,6 +55,15 @@ export const ProvisioningGeneratorAdmin = () => {
     const generating = mutationGenerating || serverGenerating;
     const isLoading = generating || deleting;
 
+    // SC 2.4.3: return keyboard focus to Generate button when loading completes
+    useEffect(() => {
+        if (prevIsLoadingRef.current && !isLoading) {
+            generateBtnRef.current?.focus();
+        }
+
+        prevIsLoadingRef.current = isLoading;
+    }, [isLoading]);
+
     const handleGenerate = async () => {
         setGenerateStatus(null);
         try {
@@ -80,12 +91,15 @@ export const ProvisioningGeneratorAdmin = () => {
             await deleteArchive();
         } catch (err) {
             console.error('Failed to delete provisioning archive:', err);
+            setGenerateStatus('error');
         }
     };
 
     return (
         <div className={styles.pg_container}>
-            {/* SC 4.1.3: two fixed-role live regions always in DOM — AT registers roles at mount */}
+            {/* SC 4.1.3: two fixed-role live regions always in DOM — AT registers roles at mount.
+                Polite region: success + loading states. Assertive region: errors only.
+                Visible alert divs below are aria-hidden; live regions are the sole AT announcement path. */}
             <div role="status" aria-live="polite" aria-atomic="true" className={styles.pg_sr_only}>
                 {generateStatus === 'success' ? t('label.success') :
                     generating ? t('label.generating') :
@@ -96,7 +110,8 @@ export const ProvisioningGeneratorAdmin = () => {
             </div>
 
             <div className={styles.pg_header}>
-                {/* MIN-03: title fallback for ellipsis-truncated heading */}
+                {/* CRIT-02: component starts at h2; Jahia admin shell is expected to provide an h1 landmark.
+                    MIN-03: title attribute provides tooltip fallback for ellipsis-truncated text */}
                 <h2 title={t('label.title')}>{t('label.title')}</h2>
             </div>
 
@@ -117,7 +132,8 @@ export const ProvisioningGeneratorAdmin = () => {
 
             <div className={styles.pg_actions}>
                 {isLoading ? (
-                    /* SC 4.1.3: aria-hidden so visible loading text doesn't duplicate the sr-only polite region */
+                    /* SC 4.1.3: aria-hidden prevents duplicate announcement — polite live region above
+                       handles the loading state announcement for AT */
                     <div className={styles.pg_loading} aria-hidden="true">
                         <Loader size="big" aria-hidden="true"/>
                         <Typography className={styles.pg_loading_text}>
@@ -126,6 +142,7 @@ export const ProvisioningGeneratorAdmin = () => {
                     </div>
                 ) : (
                     <Button
+                        ref={generateBtnRef}
                         type="button"
                         label={t('label.generate')}
                         variant="primary"
@@ -150,6 +167,8 @@ export const ProvisioningGeneratorAdmin = () => {
                         >
                             {t('label.download')}
                         </a>
+                        {/* MIN-06: accessible name "Delete archive" is unique in this single-instance component.
+                            If this component is ever rendered in a list, add aria-label with item context. */}
                         <button
                             type="button"
                             className={styles.pg_delete_btn}

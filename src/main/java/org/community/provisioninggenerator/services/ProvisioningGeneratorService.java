@@ -66,8 +66,8 @@ public class ProvisioningGeneratorService {
     }
 
     private void writeZip(File file, String filename, JCRSessionWrapper session) throws IOException {
-        final FileOutputStream os = new FileOutputStream(file);
-        try (ZipOutputStream zipOutputStream = new ZipOutputStream(os)) {
+        try (FileOutputStream os = new FileOutputStream(file);
+             ZipOutputStream zipOutputStream = new ZipOutputStream(os)) {
             logger.info("Module Export started, this may take some time");
             final ObjectMapper objectMapper = new ObjectMapper(new YAMLFactory());
             final List<BundleInstall> bundleKeys = new ArrayList<>();
@@ -95,7 +95,11 @@ public class ProvisioningGeneratorService {
     }
 
     private void compressNode(JCRNodeWrapper node, ZipOutputStream zipOutputStream, List<BundleInstall> bundleKeys) {
-        final String nodeName = node.getName();
+        final String nodeName = sanitizeEntryName(node.getName());
+        if (nodeName == null) {
+            logger.warn("Skipping node with unsafe name");
+            return;
+        }
         logger.info("Compressing Node: {}", nodeName);
         try {
             final Node fileContent = node.getNode("jcr:content");
@@ -110,5 +114,15 @@ public class ProvisioningGeneratorService {
         } catch (IOException | RepositoryException e) {
             logger.error("Impossible to retrieve module content", e);
         }
+    }
+
+    private static String sanitizeEntryName(String name) {
+        if (name == null || name.isEmpty()) {
+            return null;
+        }
+        if (name.contains("..") || name.contains("/") || name.contains("\\") || name.startsWith("/")) {
+            return null;
+        }
+        return name;
     }
 }

@@ -32,7 +32,9 @@ describe('Provisioning Generator – UI', () => {
     it('renders the page with title, description and generate button when no archive exists', () => {
         cy.login();
         cy.visit(adminPath);
-        cy.contains('h2', 'Provisioning Generator').should('be.visible');
+        // First admin UI load of the suite: allow extra time for the Jahia admin shell to mount
+        // the federated provisioning-generator remote module and activate the SPA route.
+        cy.contains('h2', 'Provisioning Generator', {timeout: 30000}).should('be.visible');
         cy.contains('Generate a ZIP archive of all active Jahia modules').should('be.visible');
         cy.contains('button', 'Generate archive').should('be.visible');
         cy.contains('Generated on').should('not.exist');
@@ -68,15 +70,18 @@ describe('Provisioning Generator – UI', () => {
             body: {query: 'mutation { provisioningGeneratorGenerate }'},
             timeout: 120000
         });
-        // Delay the delete mutation response so the loading state is reliably assertable
+        // Delay the delete mutation response so the loading state is reliably assertable.
+        // Apollo may send single or batched bodies, and req.body can be a parsed object,
+        // an array (batched HTTP link), or a raw string — check all shapes.
         cy.intercept('POST', '/modules/graphql', req => {
-            const body = req.body as {query?: string};
-            if (body?.query?.includes('provisioningGeneratorDelete')) {
+            const raw = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+            if (raw && raw.includes('provisioningGeneratorDelete')) {
+                req.alias = 'deleteMutation';
                 req.on('response', res => {
-                    res.setDelay(1000);
+                    res.setDelay(5000);
                 });
             }
-        }).as('deleteMutation');
+        });
         cy.visit(adminPath);
         // Wait for the archive section to be fully rendered before clicking delete
         cy.contains('Generated on').should('be.visible');

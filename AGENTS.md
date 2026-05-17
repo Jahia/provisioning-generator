@@ -13,15 +13,17 @@ Jahia OSGi module that generates a provisioning ZIP archive of all currently act
 
 | Class | Role |
 |-------|------|
-| `ProvisioningGeneratorService` | Core logic; `volatile boolean generating` guards concurrent calls; `generate(tmpPath)` builds the ZIP |
-| `BundleInstall` | Value object representing one bundle entry in the archive |
+| `ProvisioningGeneratorService` | Core logic; `volatile boolean generating` guards concurrent calls; `generate(tmpContentDiskPath)` builds the ZIP and returns the `File` |
+| `BundleInstall` | Value object representing one bundle entry in the archive; constructor prefixes the entry name with `file://<tmpContentDiskPath>/` and exposes `installBundle` + `autoStart=true` |
+| `GenerateCommand` | Karaf shell command `provisioning-generator:generate` that calls the service and logs the generated path |
+| `ProvisioningGeneratorGraphQLExtensionsProvider` | Registers the GraphQL extensions with `graphql-dxm-provider` |
 | `ProvisioningGeneratorQueryExtension` | GraphQL queries |
 | `ProvisioningGeneratorMutationExtension` | GraphQL mutations |
 
-Generated archive JCR path: `/sites/systemsite/files/provisioning-generator/provisioning-export.zip`  
-Temp ZIP is written to `jahiaVarDiskPath/tmpContent/` then copied to JCR, then deleted.
+Generated archive JCR path: `/sites/systemsite/files/provisioning-generator/provisioning-export.zip` (constants `JCR_FOLDER` / `JCR_FILENAME` / `ARCHIVE_JCR_PATH` in `ProvisioningGeneratorMutationExtension`).
+Temp ZIP is written to `SettingsBean#getTmpContentDiskPath()` as `modulesExport<timestamp>.zip`, copied into JCR via `JCRNodeWrapper#uploadFile`, then the temp file is deleted in the mutation's `finally` block.
 
-`generate()` queries `module-management` JCR workspace for active bundles, writes each JAR + a `provisioning.yml` manifest into a ZIP using `ZipOutputStream`.
+`generate()` runs as a system session on `EDIT_WORKSPACE`, iterates `JahiaTemplateManagerService#getAvailableTemplatePackages()` filtered by `isActiveVersion`, runs a JCR-SQL2 query against `[jnt:moduleManagementBundle]` under `/module-management/` for each module, and writes each JAR plus a `provisioning.yaml` manifest into a ZIP using `ZipOutputStream`. Zip entry names are sanitized (rejects `..`, `/`, `\`, leading `/`) to harden against zip-slip.
 
 ## GraphQL API
 
@@ -55,13 +57,15 @@ yarn install
 ./ci.build.sh && ./ci.startup.sh
 ```
 
-- Tests: `tests/cypress/e2e/01-provisioningGenerator.cy.ts`
+- Tests:
+  - `tests/cypress/e2e/01-provisioningGenerator.cy.ts` — GraphQL-level flow (generate, poll `isGenerating`, archive info, delete)
+  - `tests/cypress/e2e/02-provisioningGeneratorUI.cy.ts` — Admin UI flow (buttons, download link, delete confirmation); hardened against cold-start and batched Apollo requests
 - Admin path: `/jahia/administration/provisioningGenerator`
-- Tests cover: generate archive (polls `isGenerating` until false), download link appears, delete archive, admin UI buttons
 
 ## Gotchas
 
-- `volatile boolean generating` is set to `true` at the start of `generate()` and reset to `false` in `finally` — callers should poll `isGenerating` to know when the generation completes, since `generate` mutation returns `true` only after it finishes (it is **synchronous**)
-- The mutation returns `true` only after the ZIP is fully written to JCR — it is not async; long generation times will block the GraphQL thread
-- If the archive JCR node doesn't exist at `archiveInfo` query time, `null` is returned (not an error) — the UI uses this to show/hide the download button
-- CSS Modules: match in Cypress with `[class*="pg_..."]`
+- `volatile boolean generating` is set to `true` at the start of `ProvisioningGeneratorService#generate()` and reset to `false` in its `finally` — **the flag covers only ZIP creation in the temp folder**, NOT the subsequent `writeToJcr` step performed by the mutation. So `isGenerating` may flip back to `false` while the mutation is still copying the file into JCR; if a caller polls `isGenerating` and then immediately queries `archiveInfo`, the node may not yet exist.
+- The `provisioningGeneratorGenerate` mutation is **synchronous** and returns `true` only after the ZIP is generated, copied into JCR, and the temp file deleted — long generation times will block the GraphQL request thread.
+- If the archive JCR node doesn't exist at `archiveInfo` query time, `null` is returned (not an error) — the UI uses this to show/hide the download button.
+- The Karaf command `provisioning-generator:generate` does NOT copy the file into JCR; it only writes to `tmpContentDiskPath` and logs the absolute path. JCR persistence happens exclusively through the GraphQL mutation.
+- CSS Modules: match in Cypress with `[class*="pg_..."]`.

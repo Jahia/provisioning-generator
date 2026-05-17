@@ -27,7 +27,7 @@ From this page you can:
 
 #### <a name="provisioning-generator:generate"></a>provisioning-generator:generate
 
-Generates an archive in the folder `JAHIA_HOME/digital-factory-data/content/tmp/`.
+Generates an archive in Jahia's temporary content folder (`SettingsBean#getTmpContentDiskPath()`, by default `<digital-factory-data>/tmpContent/`). The Karaf command logs the absolute path of the generated file; unlike the GraphQL mutation, it does not copy the archive into JCR.
 
 **Example:**
 
@@ -45,6 +45,6 @@ Generates an archive in the folder `JAHIA_HOME/digital-factory-data/content/tmp/
 The generated ZIP file contains:
 
 - One JAR file per active module, as stored in the Jahia module management repository.
-- A `provisionning.yaml` file listing all bundles with `autoStart: true`, ready to be replayed via the Jahia provisioning API.
+- A `provisioning.yaml` file listing all bundles with `autoStart: true`, ready to be replayed via the Jahia provisioning API.
 
 The archive is also stored in JCR at `/sites/systemsite/files/provisioning-generator/provisioning-export.zip` and is accessible through the administration UI.

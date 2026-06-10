@@ -37,7 +37,7 @@ public class ProvisioningGeneratorMutationExtension {
     @GraphQLField
     @GraphQLName("provisioningGeneratorGenerate")
     @GraphQLDescription("Generates a provisioning ZIP archive of all active Jahia modules and stores it in JCR")
-    @GraphQLRequiresPermission("admin")
+    @GraphQLRequiresPermission("provisioningGeneratorAdmin")
     public static Boolean generate() {
         final SettingsBean settingsBean = BundleUtils.getOsgiService(SettingsBean.class, null);
         final ProvisioningGeneratorService service = BundleUtils.getOsgiService(ProvisioningGeneratorService.class, null);
@@ -69,7 +69,7 @@ public class ProvisioningGeneratorMutationExtension {
     @GraphQLField
     @GraphQLName("provisioningGeneratorDelete")
     @GraphQLDescription("Deletes the provisioning archive from JCR")
-    @GraphQLRequiresPermission("admin")
+    @GraphQLRequiresPermission("provisioningGeneratorAdmin")
     public static Boolean delete() {
         try {
             BundleUtils.getOsgiService(JCRTemplate.class, null).doExecuteWithSystemSessionAsUser(

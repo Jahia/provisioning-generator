@@ -31,7 +31,7 @@ public class ProvisioningGeneratorQueryExtension {
     @GraphQLField
     @GraphQLName("provisioningGeneratorIsGenerating")
     @GraphQLDescription("Returns true if a provisioning archive is currently being generated")
-    @GraphQLRequiresPermission("admin")
+    @GraphQLRequiresPermission("provisioningGeneratorAdmin")
     public static Boolean isGenerating() {
         final ProvisioningGeneratorService service = BundleUtils.getOsgiService(ProvisioningGeneratorService.class, null);
         return service != null && service.isGenerating();
@@ -40,7 +40,7 @@ public class ProvisioningGeneratorQueryExtension {
     @GraphQLField
     @GraphQLName("provisioningGeneratorArchiveInfo")
     @GraphQLDescription("Returns archive metadata if the provisioning archive exists in JCR, null otherwise")
-    @GraphQLRequiresPermission("admin")
+    @GraphQLRequiresPermission("provisioningGeneratorAdmin")
     public static GqlArchiveInfo archiveInfo() {
         try {
             return BundleUtils.getOsgiService(JCRTemplate.class, null).doExecuteWithSystemSessionAsUser(

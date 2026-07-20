@@ -71,7 +71,7 @@
   "homepage": "https://github.com/Jahia/provisioning-generator#readme",
   "resolutions": {
     "@babel/plugin-transform-modules-systemjs": "^7.29.4",
-    "axios": "^1.16.0",
+    "axios": "^1.18.1",
     "fast-uri": "^3.1.2",
     "ip-address": "^10.1.1",
     "serialize-javascript": "^7.0.5",

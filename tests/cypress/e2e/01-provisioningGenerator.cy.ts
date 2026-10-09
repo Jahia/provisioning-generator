@@ -7,6 +7,8 @@ describe('Provisioning Generator', () => {
     const deleteArchive: DocumentNode = require('graphql-tag/loader!../fixtures/graphql/mutation/deleteArchive.graphql');
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const getArchiveInfo: DocumentNode = require('graphql-tag/loader!../fixtures/graphql/query/getArchiveInfo.graphql');
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const generateArchiveAsync: DocumentNode = require('graphql-tag/loader!../fixtures/graphql/mutation/generateArchiveAsync.graphql');
 
     const graphqlRequestOptions = {
         method: 'POST' as const,
@@ -81,6 +83,36 @@ describe('Provisioning Generator', () => {
         cy.apollo({mutation: generateArchive})
             .its('data.provisioningGeneratorGenerate')
             .should('eq', true);
+    });
+
+    it('generates the archive in the background when async is true', () => {
+        const waitUntilIdle = (attempts = 60): void => {
+            cy.request({
+                ...graphqlRequestOptions,
+                body: {query: 'query { provisioningGeneratorIsGenerating }'}
+            }).then(res => {
+                if (res.body.data.provisioningGeneratorIsGenerating && attempts > 0) {
+                    // eslint-disable-next-line cypress/no-unnecessary-waiting
+                    cy.wait(2000);
+                    waitUntilIdle(attempts - 1);
+                }
+            });
+        };
+
+        cy.apollo({query: getArchiveInfo})
+            .its('data.provisioningGeneratorArchiveInfo.createdAt')
+            .then(previousCreatedAt => {
+                cy.apollo({mutation: generateArchiveAsync})
+                    .its('data.provisioningGeneratorGenerate')
+                    .should('eq', true);
+
+                waitUntilIdle();
+
+                cy.apollo({query: getArchiveInfo})
+                    .its('data.provisioningGeneratorArchiveInfo.createdAt')
+                    .should('be.a', 'string')
+                    .and('not.eq', previousCreatedAt);
+            });
     });
 
     it('deletes the provisioning archive', () => {

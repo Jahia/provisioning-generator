@@ -7,6 +7,7 @@
     "generating": "Generating archive, please wait…",
     "success": "Archive generated successfully.",
     "error": "An error occurred while generating the archive.",
+    "timeout": "The request timed out at the proxy level, but the archive generation is still running on the server. Please wait, this page will update when it is done.",
     "download": "Download provisioning-export.zip",
     "downloadAriaLabel": "Download provisioning-export.zip (ZIP file)",
     "delete": "Delete archive",

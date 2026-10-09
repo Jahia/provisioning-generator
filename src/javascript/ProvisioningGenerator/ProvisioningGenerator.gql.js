@@ -10,8 +10,8 @@ export const GET_ARCHIVE_INFO = gql`
 `;
 
 export const GENERATE_PROVISIONING_ARCHIVE = gql`
-    mutation GenerateProvisioningArchive {
-        provisioningGeneratorGenerate
+    mutation GenerateProvisioningArchive($async: Boolean) {
+        provisioningGeneratorGenerate(async: $async)
     }
 `;
 

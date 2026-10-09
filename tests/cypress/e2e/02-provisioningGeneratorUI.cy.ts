@@ -43,11 +43,56 @@ describe('Provisioning Generator – UI', () => {
 
     it('shows loading indicator and hides generate button while generating', () => {
         cy.login();
+        // The UI must request a background generation so the HTTP call cannot hit a reverse-proxy timeout
+        cy.intercept('POST', '/modules/graphql', req => {
+            const raw = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+            if (raw && raw.includes('provisioningGeneratorGenerate')) {
+                req.alias = 'generateMutation';
+            }
+        });
         cy.visit(adminPath);
         cy.contains('button', 'Generate archive').click();
+        cy.wait('@generateMutation').then(({request}) => {
+            const raw = typeof request.body === 'string' ? request.body : JSON.stringify(request.body);
+            expect(raw).to.include('"async":true');
+        });
         cy.contains('Generating archive, please wait…').should('be.visible');
         cy.contains('button', 'Generate archive').should('not.exist');
         cy.contains('Archive generated successfully.', {timeout: 120000}).should('be.visible');
+        cy.contains('button', 'Generate archive').should('be.visible');
+    });
+
+    it('shows a proxy-timeout warning and still picks up the archive when the generate request gets a 504', () => {
+        cy.login();
+        let mutationAnswered = false;
+        cy.intercept('POST', '/modules/graphql', req => {
+            const raw = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+            if (raw && raw.includes('provisioningGeneratorGenerate')) {
+                // Let Jahia start the generation, but answer like a reverse proxy that gave up waiting
+                req.alias = 'generateMutation';
+                req.continue(res => {
+                    mutationAnswered = true;
+                    res.send({
+                        statusCode: 504,
+                        headers: {'content-type': 'text/html'},
+                        body: '<!DOCTYPE html><html><body><h1>504 Gateway Time-out</h1></body></html>'
+                    });
+                });
+            } else if (raw && raw.includes('provisioningGeneratorIsGenerating') && mutationAnswered) {
+                // Slow down the first status poll so the warning is reliably visible before completion
+                mutationAnswered = false;
+                req.on('response', res => {
+                    res.setDelay(3000);
+                });
+            }
+        });
+        cy.visit(adminPath);
+        cy.contains('button', 'Generate archive').click();
+        cy.wait('@generateMutation');
+        cy.contains('The request timed out at the proxy level').should('be.visible');
+        cy.contains('An error occurred while generating the archive.').should('not.exist');
+        cy.contains('Archive generated successfully.', {timeout: 120000}).should('be.visible');
+        cy.contains('The request timed out at the proxy level').should('not.exist');
         cy.contains('button', 'Generate archive').should('be.visible');
     });
 

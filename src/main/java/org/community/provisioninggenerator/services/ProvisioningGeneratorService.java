@@ -28,6 +28,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
@@ -82,10 +83,21 @@ public class ProvisioningGeneratorService {
      * @throws IllegalStateException if a generation is already in progress
      */
     public File generate(String tmpContentDiskPath) throws RepositoryException {
+        return generate(tmpContentDiskPath, ExportScope.allModules());
+    }
+
+    /**
+     * Generates the archive in the temp folder and returns it.
+     *
+     * @throws IllegalStateException    if a generation is already in progress
+     * @throws IllegalArgumentException if a site of the scope does not exist
+     */
+    public File generate(String tmpContentDiskPath, ExportScope scope) throws RepositoryException {
         validate(tmpContentDiskPath);
+        checkSites(scope);
         acquire();
         try {
-            return createArchive(tmpContentDiskPath);
+            return createArchive(tmpContentDiskPath, scope);
         } finally {
             generating.set(false);
         }
@@ -94,13 +106,16 @@ public class ProvisioningGeneratorService {
     /**
      * Generates the archive and passes it to {@code handler}; {@link #isGenerating()} stays true until the handler returns.
      *
-     * @throws IllegalStateException if a generation is already in progress
+     * @throws IllegalStateException    if a generation is already in progress
+     * @throws IllegalArgumentException if a site of the scope does not exist
      */
-    public void generate(String tmpContentDiskPath, ArchiveHandler handler) throws RepositoryException {
+    public void generate(String tmpContentDiskPath, ExportScope scope, ArchiveHandler handler)
+            throws RepositoryException {
         validate(tmpContentDiskPath);
+        checkSites(scope);
         acquire();
         try {
-            handler.handle(createArchive(tmpContentDiskPath));
+            handler.handle(createArchive(tmpContentDiskPath, scope));
         } finally {
             generating.set(false);
         }
@@ -111,16 +126,19 @@ public class ProvisioningGeneratorService {
      * HTTP/proxy timeouts. {@link #isGenerating()} stays true until the handler returns.
      *
      * @return false if a generation is already in progress
+     * @throws IllegalArgumentException if a site of the scope does not exist
      */
-    public boolean generateAsync(String tmpContentDiskPath, ArchiveHandler handler) {
+    public boolean generateAsync(String tmpContentDiskPath, ExportScope scope, ArchiveHandler handler)
+            throws RepositoryException {
         validate(tmpContentDiskPath);
+        checkSites(scope);
         if (!generating.compareAndSet(false, true)) {
             return false;
         }
         try {
             executor.execute(() -> {
                 try {
-                    handler.handle(createArchive(tmpContentDiskPath));
+                    handler.handle(createArchive(tmpContentDiskPath, scope));
                 } catch (Exception e) {
                     logger.error("Error generating provisioning archive", e);
                 } finally {
@@ -140,20 +158,45 @@ public class ProvisioningGeneratorService {
         }
     }
 
+    /**
+     * Checks that every site of the scope exists, so that errors are reported to the caller before a (possibly
+     * asynchronous) generation starts.
+     */
+    protected void checkSites(ExportScope scope) throws RepositoryException {
+        final List<String> sites = scope.getSiteKeys();
+        if (sites.isEmpty()) {
+            return;
+        }
+        final List<String> missing = BundleUtils.getOsgiService(JCRTemplate.class, null).doExecuteWithSystemSessionAsUser(
+                null, Constants.EDIT_WORKSPACE, null, session -> {
+                    final List<String> result = new ArrayList<>();
+                    for (String site : sites) {
+                        if (!session.nodeExists("/sites/" + site)
+                                || !session.getNode("/sites/" + site).isNodeType("jnt:virtualsite")) {
+                            result.add(site);
+                        }
+                    }
+                    return result;
+                });
+        if (!missing.isEmpty()) {
+            throw new IllegalArgumentException("Unknown site(s): " + String.join(", ", missing));
+        }
+    }
+
     private void acquire() {
         if (!generating.compareAndSet(false, true)) {
             throw new IllegalStateException("A provisioning archive is already being generated");
         }
     }
 
-    protected File createArchive(String tmpContentDiskPath) throws RepositoryException {
+    protected File createArchive(String tmpContentDiskPath, ExportScope scope) throws RepositoryException {
         final String filename = tmpContentDiskPath + EXPORT_FILE_PREFIX + System.currentTimeMillis() + EXPORT_FILE_SUFFIX;
         final File file = new File(filename);
         BundleUtils.getOsgiService(JCRTemplate.class, null).doExecuteWithSystemSessionAsUser(
                 null, Constants.EDIT_WORKSPACE, null, session -> {
                     try {
                         if (file.createNewFile()) {
-                            writeZip(file, filename, session);
+                            writeZip(file, filename, modulesToExport(session, scope), session);
                         } else {
                             throw new IOException("Impossible to create file " + filename);
                         }
@@ -165,27 +208,45 @@ public class ProvisioningGeneratorService {
         return file;
     }
 
-    private void writeZip(File file, String filename, JCRSessionWrapper session) throws IOException {
+    private static List<JahiaTemplatesPackage> modulesToExport(JCRSessionWrapper session, ExportScope scope)
+            throws RepositoryException {
+        final JahiaTemplateManagerService templateManagerService =
+                BundleUtils.getOsgiService(JahiaTemplateManagerService.class, null);
+        final List<JahiaTemplatesPackage> candidates = scope.isSiteScoped()
+                ? new SiteModuleResolver(templateManagerService).resolve(session, scope.getSiteKeys())
+                : templateManagerService.getAvailableTemplatePackages().stream()
+                        .filter(JahiaTemplatesPackage::isActiveVersion)
+                        .collect(Collectors.toList());
+        // Platform modules are resolved as dependencies but, by default, not exported: they ship with Jahia
+        final List<JahiaTemplatesPackage> modules = candidates.stream()
+                .filter(module -> scope.exports(module.getModuleType()))
+                .collect(Collectors.toList());
+        logger.info("Exporting {} of {} modules (sites: {}, platform modules included: {})", modules.size(),
+                candidates.size(), scope.isSiteScoped() ? scope.getSiteKeys() : "all", scope.isIncludeSystemModules());
+        return modules;
+    }
+
+    private void writeZip(File file, String filename, List<JahiaTemplatesPackage> modules, JCRSessionWrapper session)
+            throws IOException {
         try (FileOutputStream os = new FileOutputStream(file);
              ZipOutputStream zipOutputStream = new ZipOutputStream(os)) {
             logger.info("Module Export started, this may take some time");
             final ObjectMapper objectMapper = new ObjectMapper(new YAMLFactory());
             final List<BundleInstall> bundleKeys = new ArrayList<>();
-            BundleUtils.getOsgiService(JahiaTemplateManagerService.class, null).getAvailableTemplatePackages().stream()
-                    .filter(JahiaTemplatesPackage::isActiveVersion).forEachOrdered(module -> {
-                        logger.info(module.getBundleKey());
-                        final String query = String.format(QUERY, module.getGroupId(),
-                                module.getBundle().getSymbolicName(), module.getBundle().getVersion().toString());
-                        try {
-                            final NodeIterator nodeIterator = session.getWorkspace().getQueryManager()
-                                    .createQuery(query, Query.JCR_SQL2).execute().getNodes();
-                            while (nodeIterator.hasNext()) {
-                                compressNode((JCRNodeWrapper) nodeIterator.nextNode(), zipOutputStream, bundleKeys);
-                            }
-                        } catch (RepositoryException e) {
-                            logger.error("Impossible to retrieve module", e);
-                        }
-                    });
+            modules.forEach(module -> {
+                logger.info(module.getBundleKey());
+                final String query = String.format(QUERY, module.getGroupId(),
+                        module.getBundle().getSymbolicName(), module.getBundle().getVersion().toString());
+                try {
+                    final NodeIterator nodeIterator = session.getWorkspace().getQueryManager()
+                            .createQuery(query, Query.JCR_SQL2).execute().getNodes();
+                    while (nodeIterator.hasNext()) {
+                        compressNode((JCRNodeWrapper) nodeIterator.nextNode(), zipOutputStream, bundleKeys);
+                    }
+                } catch (RepositoryException e) {
+                    logger.error("Impossible to retrieve module", e);
+                }
+            });
             final ZipEntry zipEntry = new ZipEntry(MANIFEST_ENTRY_NAME);
             zipOutputStream.putNextEntry(zipEntry);
             zipOutputStream.write(objectMapper.writer().writeValueAsBytes(bundleKeys));

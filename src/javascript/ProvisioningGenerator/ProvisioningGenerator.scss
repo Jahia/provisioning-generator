@@ -1,3 +1,6 @@
+/* All colors, spacings and radii come from Moonstone tokens so the page follows the Jahia admin theme.
+   Fallbacks are the Moonstone default values. */
+
 .pg_sr_only {
   position: absolute;
   width: 1px;
@@ -11,156 +14,267 @@
 }
 
 .pg_container {
-  font-family: 'Nunito Sans', sans-serif;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-large, 24px);
+  max-width: 760px;
+  padding: var(--spacing-big, 32px) var(--spacing-large, 24px);
   color: var(--color-dark, #131c21);
-  max-width: 720px;
-  padding: var(--spacing-large, 24px);
 }
 
-/* MAJ-04: flexbox replaces line-height: 85px for text spacing compliance (SC 1.4.12).
-   min-height preserves the original 85px visual header height. */
+/* ---------- Header ---------- */
+
 .pg_header {
   display: flex;
-  align-items: center;
-  min-height: 80px;
-
-  h2 {
-    margin: 0;
-    padding: 0;
-    margin-left: 25px;
-    /* MAJ-03: rem for browser font-size scaling (SC 1.4.4) */
-    font-size: 1.5625rem;
-    line-height: 1.3;
-    width: 80%;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
+  flex-direction: column;
+  gap: var(--spacing-small, 8px);
 }
 
-.pg_description {
-  margin-bottom: var(--spacing-large, 24px);
-  padding: var(--spacing-medium, 16px);
-  background: var(--color-light, #fdfdfd);
-  border-left: 3px solid var(--color-accent, #00a0e3);
-  border-radius: 0 var(--radius, 4px) var(--radius, 4px) 0;
+.pg_title {
+  margin: 0;
+  text-wrap: balance;
 }
 
-.pg_alert {
-  padding: var(--spacing-small, 8px) var(--spacing-medium, 16px);
-  border-radius: var(--radius, 4px);
-  /* MAJ-03: rem for browser font-size scaling (SC 1.4.4) */
-  font-size: 0.8125rem;
-  margin-bottom: var(--spacing-medium, 16px);
-  border: 1px solid transparent;
-
-  &--success {
-    background: #eaf7eb;
-    border-color: var(--color-success, #6abb6d);
-    color: var(--color-success_dark, #267729);
-  }
-
-  &--warning {
-    background: #fff4e5;
-    border-color: var(--color-warning, #ff9800);
-    color: #663c00;
-  }
-
-  &--error {
-    background: #fdecea;
-    border-color: var(--color-danger, #f44053);
-    color: var(--color-danger_dark, #840d0f);
-  }
+.pg_lead {
+  margin: 0;
+  max-width: 65ch;
+  color: var(--color-gray_dark, #293136);
 }
 
-.pg_actions {
-  margin-top: var(--spacing-medium, 16px);
-}
+/* ---------- Sections ---------- */
 
-.pg_loading {
+.pg_section {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: var(--spacing-medium, 16px);
-  padding: var(--spacing-medium, 16px) 0;
+  padding: var(--spacing-large, 24px);
+  background: var(--color-white, #fff);
+  border: 1px solid var(--color-gray_light, #dadada);
+  border-radius: var(--radius, 4px);
 }
 
-.pg_loading_text {
-  /* MAJ-03: rem for browser font-size scaling (SC 1.4.4) */
+.pg_section_title {
+  margin: 0;
+
+  /* Receives focus programmatically (tabIndex -1) while its action runs: no ring for a non-interactive target */
+  &:focus {
+    outline: none;
+  }
+}
+
+.pg_muted {
+  color: var(--color-gray_dark, #293136);
+}
+
+/* ---------- Scope selector ---------- */
+
+.pg_scope {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-medium, 16px);
+}
+
+.pg_options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-medium, 16px);
+}
+
+.pg_option {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-small, 8px);
+}
+
+.pg_option_input {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  /* Align the control with the first line of the label */
+  margin: 1px 0 0;
+  accent-color: var(--color-accent_dark, #0072b1);
+  cursor: pointer;
+
+  &:disabled {
+    cursor: not-allowed;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-accent_dark, #0072b1);
+    outline-offset: 2px;
+  }
+}
+
+.pg_option_text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* SC 2.5.8: the label is part of the click target, keeping the whole row comfortably above 24px */
+.pg_option_label {
   font-size: 0.875rem;
-  /* MAJ-01: #4a5260 replaces #5c6370 for adequate contrast on non-white backgrounds (SC 1.4.3) */
-  color: #4a5260;
+  line-height: 20px;
+  cursor: pointer;
 }
 
-.pg_archive_section {
-  margin-top: var(--spacing-large, 24px);
-  padding-top: var(--spacing-large, 24px);
+.pg_option_input:disabled + .pg_option_text .pg_option_label {
+  color: var(--color-gray_dark, #293136);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.pg_option_description {
+  max-width: 65ch;
+  color: var(--color-gray_dark, #293136);
+}
+
+/* Site list: indented under its radio, bounded height for servers with many sites */
+.pg_sites {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-small, 8px);
+  max-height: 240px;
+  overflow-y: auto;
+  margin-left: 26px;
+  padding: var(--spacing-small, 8px) var(--spacing-medium, 16px);
+  border: 1px solid var(--color-gray_light, #dadada);
+  border-radius: var(--radius, 4px);
+  background: var(--color-light, #fdfdfd);
+}
+
+.pg_option_separated {
+  padding-top: var(--spacing-medium, 16px);
   border-top: 1px solid var(--color-gray_light, #dadada);
 }
 
-.pg_created_at {
-  margin: 0 0 var(--spacing-medium, 16px);
-  /* MAJ-03: rem for browser font-size scaling (SC 1.4.4) */
-  font-size: 0.8125rem;
-  /* MAJ-01: #4a5260 replaces #5c6370 for adequate contrast on non-white backgrounds (SC 1.4.3) */
-  color: #4a5260;
+.pg_hint {
+  margin: 0;
+  color: var(--color-gray_dark, #293136);
+}
+
+/* ---------- Actions, progress, feedback ---------- */
+
+.pg_actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-medium, 16px);
+  min-height: 40px;
+}
+
+.pg_progress {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-small, 8px);
+  min-height: 40px;
+}
+
+.pg_banner {
+  animation: pg-fade-in 200ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+/* ---------- Current archive ---------- */
+
+.pg_archive {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-medium, 16px);
+}
+
+.pg_archive_file {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-medium, 16px);
+  min-width: 0;
+}
+
+.pg_archive_icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius, 4px);
+  background: var(--color-accent_plain20, #caeaf8);
+  color: var(--color-accent_dark, #0072b1);
+}
+
+.pg_archive_meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.pg_archive_name {
+  overflow-wrap: anywhere;
 }
 
 .pg_archive_actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--spacing-medium, 16px);
+  gap: var(--spacing-small, 8px);
 }
 
+/* Download is a link (file URL); styled like the Moonstone accent button it sits next to */
 .pg_download_link {
   display: inline-flex;
   align-items: center;
   gap: var(--spacing-small, 8px);
-  padding: var(--spacing-small, 8px) var(--spacing-medium, 16px);
-  background: #0077cc;
-  color: #fff;
+  min-height: 32px;
+  padding: 0 var(--spacing-medium, 16px);
   border-radius: var(--radius, 4px);
-  text-decoration: none;
-  /* MAJ-03: rem for browser font-size scaling (SC 1.4.4) */
+  /* accent_dark, not accent: white on accent is 2.9:1, on accent_dark it passes AA (SC 1.4.3) */
+  background: var(--color-accent_dark, #0072b1);
+  color: var(--color-white, #fff);
   font-size: 0.875rem;
   font-weight: 600;
-  font-family: 'Nunito Sans', sans-serif;
-  transition: background 0.15s;
+  text-decoration: none;
+  transition: filter 150ms cubic-bezier(0.25, 1, 0.5, 1);
 
-  &:hover {
-    background: #005fa3;
+  svg {
+    width: 16px;
+    height: 16px;
   }
 
-  &:focus,
+  &:hover {
+    filter: brightness(0.88);
+  }
+
   &:focus-visible {
-    outline: 2px solid #003d6b;
+    outline: 2px solid var(--color-dark, #131c21);
     outline-offset: 2px;
   }
 }
 
-.pg_delete_btn {
-  display: inline-flex;
-  align-items: center;
-  padding: var(--spacing-small, 8px) var(--spacing-medium, 16px);
-  background: none;
-  border: 1px solid #c62828;
-  border-radius: var(--radius, 4px);
-  color: #c62828;
-  /* MAJ-03: rem for browser font-size scaling (SC 1.4.4) */
-  font-size: 0.875rem;
-  font-weight: 600;
-  font-family: 'Nunito Sans', sans-serif;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+.pg_empty {
+  margin: 0;
+}
 
-  &:hover {
-    background: #c62828;
-    color: #fff;
+@keyframes pg-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
   }
 
-  &:focus,
-  &:focus-visible {
-    /* MAJ-02: distinct focus colour (#003d6b) vs resting border (#c62828) — SC 2.4.7, 1.4.11 */
-    outline: 2px solid #003d6b;
-    outline-offset: 2px;
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pg_banner {
+    animation: none;
+  }
+
+  .pg_download_link {
+    transition: none;
   }
 }

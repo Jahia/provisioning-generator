@@ -5,6 +5,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.io.File;
+import java.util.Collections;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -15,6 +16,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class ProvisioningGeneratorServiceTest {
 
     private static final String TMP_PATH = "/tmp";
+    private static final ExportScope NO_SITES = ExportScope.allModules();
     private static final File ARCHIVE = new File(TMP_PATH, "modulesExport0.zip");
 
     private final CountDownLatch started = new CountDownLatch(1);
@@ -25,7 +27,7 @@ public class ProvisioningGeneratorServiceTest {
     public void setUp() {
         service = new ProvisioningGeneratorService() {
             @Override
-            protected File createArchive(String tmpContentDiskPath) {
+            protected File createArchive(String tmpContentDiskPath, ExportScope scope) {
                 started.countDown();
                 try {
                     release.await(5, TimeUnit.SECONDS);
@@ -51,7 +53,7 @@ public class ProvisioningGeneratorServiceTest {
         final CountDownLatch handlerDone = new CountDownLatch(1);
 
         // Act
-        final boolean accepted = service.generateAsync(TMP_PATH, archive -> {
+        final boolean accepted = service.generateAsync(TMP_PATH, NO_SITES, archive -> {
             handled.set(archive);
             handlerDone.countDown();
         });
@@ -71,11 +73,11 @@ public class ProvisioningGeneratorServiceTest {
     @Test
     public void generateAsyncIsRejectedWhileAGenerationIsInProgress() throws Exception {
         // Arrange
-        service.generateAsync(TMP_PATH, archive -> { });
+        service.generateAsync(TMP_PATH, NO_SITES, archive -> { });
         assertThat(started.await(5, TimeUnit.SECONDS)).isTrue();
 
         // Act
-        final boolean accepted = service.generateAsync(TMP_PATH, archive -> { });
+        final boolean accepted = service.generateAsync(TMP_PATH, NO_SITES, archive -> { });
 
         // Assert
         assertThat(accepted).isFalse();
@@ -84,11 +86,11 @@ public class ProvisioningGeneratorServiceTest {
     @Test
     public void synchronousGenerateIsRejectedWhileAGenerationIsInProgress() throws Exception {
         // Arrange
-        service.generateAsync(TMP_PATH, archive -> { });
+        service.generateAsync(TMP_PATH, NO_SITES, archive -> { });
         assertThat(started.await(5, TimeUnit.SECONDS)).isTrue();
 
         // Act / Assert
-        assertThatThrownBy(() -> service.generate(TMP_PATH, archive -> { }))
+        assertThatThrownBy(() -> service.generate(TMP_PATH, NO_SITES, archive -> { }))
                 .isInstanceOf(IllegalStateException.class);
     }
 
@@ -98,20 +100,29 @@ public class ProvisioningGeneratorServiceTest {
         release.countDown();
 
         // Act
-        service.generateAsync(TMP_PATH, archive -> {
+        service.generateAsync(TMP_PATH, NO_SITES, archive -> {
             throw new javax.jcr.RepositoryException("boom");
         });
 
         // Assert
         waitUntilIdle();
         assertThat(service.isGenerating()).isFalse();
-        assertThat(service.generateAsync(TMP_PATH, archive -> { })).isTrue();
+        assertThat(service.generateAsync(TMP_PATH, NO_SITES, archive -> { })).isTrue();
     }
 
     @Test
     public void rejectsBlankTmpPath() {
-        assertThatThrownBy(() -> service.generateAsync(" ", archive -> { }))
+        assertThatThrownBy(() -> service.generateAsync(" ", NO_SITES, archive -> { }))
                 .isInstanceOf(IllegalArgumentException.class);
+        assertThat(service.isGenerating()).isFalse();
+    }
+
+    @Test
+    public void rejectsInvalidSiteKeyWithoutStartingAGeneration() {
+        assertThatThrownBy(() -> service.generateAsync(TMP_PATH, ExportScope.of(Collections.singletonList("../x"), false),
+                archive -> { }))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(started.getCount()).isEqualTo(1);
         assertThat(service.isGenerating()).isFalse();
     }
 

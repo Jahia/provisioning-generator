@@ -5,13 +5,18 @@ export const GET_ARCHIVE_INFO = gql`
         provisioningGeneratorIsGenerating
         provisioningGeneratorArchiveInfo {
             createdAt
+            siteKeys
+        }
+        provisioningGeneratorSites {
+            siteKey
+            title
         }
     }
 `;
 
 export const GENERATE_PROVISIONING_ARCHIVE = gql`
-    mutation GenerateProvisioningArchive($async: Boolean) {
-        provisioningGeneratorGenerate(async: $async)
+    mutation GenerateProvisioningArchive($async: Boolean, $siteKeys: [String]) {
+        provisioningGeneratorGenerate(async: $async, siteKeys: $siteKeys)
     }
 `;
 

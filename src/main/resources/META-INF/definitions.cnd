@@ -1,2 +1,7 @@
 <jnt = 'http://www.jahia.org/jahia/nt/1.0'>
 <jmix = 'http://www.jahia.org/jahia/mix/1.0'>
+<pgmix = 'http://www.jahia.org/community/provisioning-generator/mix/1.0'>
+
+[pgmix:provisioningArchive] mixin
+ - pgmix:siteKeys (string) multiple
+ - pgmix:includesSystemModules (boolean)

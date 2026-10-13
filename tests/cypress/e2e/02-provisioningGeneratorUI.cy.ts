@@ -35,7 +35,8 @@ describe('Provisioning Generator – UI', () => {
         // First admin UI load of the suite: allow extra time for the Jahia admin shell to mount
         // the federated provisioning-generator remote module and activate the SPA route.
         cy.contains('h2', 'Provisioning Generator', {timeout: 30000}).should('be.visible');
-        cy.contains('Generate a ZIP archive of all active Jahia modules').should('be.visible');
+        cy.contains('Package this server\'s modules into a ZIP archive').should('be.visible');
+        cy.contains('No archive yet.').should('be.visible');
         cy.contains('button', 'Generate archive').should('be.visible');
         cy.contains('Generated on').should('not.exist');
         cy.contains('a', 'Download provisioning-export.zip').should('not.exist');

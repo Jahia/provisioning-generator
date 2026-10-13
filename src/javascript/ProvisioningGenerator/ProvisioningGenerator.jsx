@@ -1,11 +1,12 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {useMutation, useQuery} from '@apollo/client';
 import {useTranslation} from 'react-i18next';
-import {Button, Loader, Typography} from '@jahia/moonstone';
+import {Archive, Button, Typography} from '@jahia/moonstone';
 import styles from './ProvisioningGenerator.scss';
+import {ScopeSelector, SelectSiteHint, useSiteScope} from './ScopeSelector';
+import {ArchivePanel, Progress, StatusBanner, archiveScope} from './ArchivePanel';
 import {DELETE_PROVISIONING_ARCHIVE, GENERATE_PROVISIONING_ARCHIVE, GET_ARCHIVE_INFO} from './ProvisioningGenerator.gql';
 
-const DOWNLOAD_URL = '/files/default/sites/systemsite/files/provisioning-generator/provisioning-export.zip';
 const POLL_INTERVAL_MS = 2000;
 
 // Statuses (or a non-JSON body) returned by a reverse proxy that gave up waiting for Jahia
@@ -21,24 +22,54 @@ const wait = ms => new Promise(resolve => {
     setTimeout(resolve, ms);
 });
 
-const formatDate = isoString => {
-    try {
-        return new Intl.DateTimeFormat(undefined, {
-            dateStyle: 'medium',
-            timeStyle: 'short'
-        }).format(new Date(isoString));
-    } catch {
-        return isoString;
-    }
+// SC 4.1.3: the success announcement includes the scope shown in the archive section
+const successMessage = (archiveInfo, t) => (archiveInfo ?
+    `${t('label.success')} ${archiveScope(archiveInfo, t)}` :
+    t('label.success'));
+
+// Moves focus to `heading` when `isWorking` turns true, and to `target()` when it turns false again
+const useFocusDuringWork = (isWorking, heading, target) => {
+    const wasWorking = useRef(false);
+    useEffect(() => {
+        if (isWorking && !wasWorking.current) {
+            heading.current?.focus();
+        } else if (!isWorking && wasWorking.current) {
+            target()?.focus();
+        }
+
+        wasWorking.current = isWorking;
+    }, [isWorking, heading, target]);
 };
+
+// SC 4.1.3: message of the polite live region
+const politeMessage = (status, {archiveInfo, generating, deleting}, t) => {
+    if (status === 'success') {
+        return successMessage(archiveInfo, t);
+    }
+
+    if (status === 'timeout' || status === 'deleted') {
+        return t(`label.${status}`);
+    }
+
+    if (generating) {
+        return t('label.generating');
+    }
+
+    return deleting ? t('label.deleting') : '';
+};
+
+const sitesOf = infoData => (infoData && infoData.provisioningGeneratorSites) || [];
 
 export const ProvisioningGeneratorAdmin = () => {
     const {t} = useTranslation('provisioning-generator');
     const [generateStatus, setGenerateStatus] = useState(null);
     const [awaitingArchive, setAwaitingArchive] = useState(false);
+    const scopeState = useSiteScope();
+    const {noSiteSelected, hintId, siteKeys, includeSystemModules} = scopeState;
     const mountedRef = useRef(true);
-    const generateBtnRef = useRef(null);
-    const prevIsLoadingRef = useRef(false);
+    const actionsRef = useRef(null);
+    const generateHeadingRef = useRef(null);
+    const archiveHeadingRef = useRef(null);
 
     // SC 2.4.2: update page title on SPA route activation
     useEffect(() => {
@@ -51,6 +82,7 @@ export const ProvisioningGeneratorAdmin = () => {
 
     const serverGenerating = infoData && infoData.provisioningGeneratorIsGenerating === true;
     const archiveInfo = infoData && infoData.provisioningGeneratorArchiveInfo;
+    const sites = sitesOf(infoData);
 
     useEffect(() => {
         if (serverGenerating) {
@@ -77,14 +109,11 @@ export const ProvisioningGeneratorAdmin = () => {
     }, []);
     const isLoading = generating || deleting;
 
-    // SC 2.4.3: return keyboard focus to Generate button when loading completes
-    useEffect(() => {
-        if (prevIsLoadingRef.current && !isLoading) {
-            generateBtnRef.current?.focus();
-        }
-
-        prevIsLoadingRef.current = isLoading;
-    }, [isLoading]);
+    // SC 2.4.3: the Generate button is replaced by a progress indicator while generating, and Delete by one while
+    // deleting. Keep focus on the matching section heading meanwhile, then return it to the Generate button.
+    // Moonstone Button does not forward refs, hence the lookup inside the actions container.
+    useFocusDuringWork(generating, generateHeadingRef, () => actionsRef.current?.querySelector('button'));
+    useFocusDuringWork(deleting, archiveHeadingRef, () => archiveHeadingRef.current);
 
     // The generation runs in the background on the server (async: true) so the request returns immediately
     // and should not be cut by a reverse-proxy timeout. Completion is detected by polling isGenerating, and
@@ -96,7 +125,7 @@ export const ProvisioningGeneratorAdmin = () => {
         const previousCreatedAt = archiveInfo ? archiveInfo.createdAt : null;
         try {
             try {
-                await generate({variables: {async: true}});
+                await generate({variables: {async: true, siteKeys, includeSystemModules}});
             } catch (err) {
                 if (!isProxyTimeout(err)) {
                     throw err;
@@ -132,6 +161,7 @@ export const ProvisioningGeneratorAdmin = () => {
         setGenerateStatus(null);
         try {
             await deleteArchive();
+            setGenerateStatus('deleted');
         } catch (_err) {
             setGenerateStatus('error');
         }
@@ -141,92 +171,62 @@ export const ProvisioningGeneratorAdmin = () => {
         <div className={styles.pg_container}>
             {/* SC 4.1.3: two fixed-role live regions always in DOM — AT registers roles at mount.
                 Polite region: success, proxy-timeout warning and loading states. Assertive region: errors only.
-                Visible alert divs below are aria-hidden; live regions are the sole AT announcement path. */}
+                The visible banners stay in the reading order so the last result can be found again in browse mode. */}
             <div role="status" aria-live="polite" aria-atomic="true" className={styles.pg_sr_only}>
-                {generateStatus === 'success' ? t('label.success') :
-                    generateStatus === 'timeout' ? t('label.timeout') :
-                    generating ? t('label.generating') :
-                    deleting ? t('label.deleting') : ''}
+                {politeMessage(generateStatus, {archiveInfo, generating, deleting}, t)}
             </div>
             <div role="alert" aria-live="assertive" aria-atomic="true" className={styles.pg_sr_only}>
                 {generateStatus === 'error' ? t('label.error') : ''}
             </div>
 
-            <div className={styles.pg_header}>
-                {/* CRIT-02: component starts at h2; Jahia admin shell is expected to provide an h1 landmark.
-                    MIN-03: title attribute provides tooltip fallback for ellipsis-truncated text */}
-                <h2 title={t('label.title')}>{t('label.title')}</h2>
-            </div>
+            <header className={styles.pg_header}>
+                {/* CRIT-02: component starts at h2; Jahia admin shell is expected to provide an h1 landmark */}
+                <Typography variant="title" component="h2" className={styles.pg_title}>{t('label.title')}</Typography>
+                <Typography variant="body" className={styles.pg_lead}>{t('label.description')}</Typography>
+            </header>
 
-            <div className={styles.pg_description}>
-                <Typography>{t('label.description')}</Typography>
-            </div>
+            <section className={styles.pg_section} aria-labelledby="pg-generate-heading">
+                <Typography
+                    ref={generateHeadingRef}
+                    id="pg-generate-heading"
+                    variant="heading"
+                    component="h3"
+                    tabIndex={-1}
+                    className={styles.pg_section_title}
+                >
+                    {t('label.generateHeading')}
+                </Typography>
 
-            {generateStatus === 'success' && (
-                <div aria-hidden="true" className={`${styles.pg_alert} ${styles['pg_alert--success']}`}>
-                    {t('label.success')}
-                </div>
-            )}
-            {generateStatus === 'timeout' && (
-                <div aria-hidden="true" className={`${styles.pg_alert} ${styles['pg_alert--warning']}`}>
-                    {t('label.timeout')}
-                </div>
-            )}
-            {generateStatus === 'error' && (
-                <div aria-hidden="true" className={`${styles.pg_alert} ${styles['pg_alert--error']}`}>
-                    {t('label.error')}
-                </div>
-            )}
+                <ScopeSelector sites={sites} state={scopeState} isDisabled={isLoading}/>
 
-            <div className={styles.pg_actions}>
-                {isLoading ? (
-                    /* SC 4.1.3: aria-hidden prevents duplicate announcement — polite live region above
-                       handles the loading state announcement for AT */
-                    <div className={styles.pg_loading} aria-hidden="true">
-                        <Loader size="big" aria-hidden="true"/>
-                        <Typography className={styles.pg_loading_text}>
-                            {generating ? t('label.generating') : t('label.deleting')}
-                        </Typography>
-                    </div>
-                ) : (
-                    <Button
-                        ref={generateBtnRef}
-                        type="button"
-                        label={t('label.generate')}
-                        variant="primary"
-                        isDisabled={isLoading}
-                        onClick={handleGenerate}
-                    />
-                )}
-            </div>
-
-            {archiveInfo && !isLoading && (
-                <div className={styles.pg_archive_section}>
-                    <p className={styles.pg_created_at}>
-                        {t('label.createdAt', {date: formatDate(archiveInfo.createdAt)})}
-                    </p>
-                    <div className={styles.pg_archive_actions}>
-                        {/* SC 2.4.4: aria-label adds explicit file-type context for AT users */}
-                        <a
-                            href={DOWNLOAD_URL}
-                            download="provisioning-export.zip"
-                            className={styles.pg_download_link}
-                            aria-label={t('label.downloadAriaLabel')}
-                        >
-                            {t('label.download')}
-                        </a>
-                        {/* MIN-06: accessible name "Delete archive" is unique in this single-instance component.
-                            If this component is ever rendered in a list, add aria-label with item context. */}
-                        <button
+                <div ref={actionsRef} className={styles.pg_actions}>
+                    {generating ? (
+                        <Progress label={t('label.generating')}/>
+                    ) : (
+                        <Button
                             type="button"
-                            className={styles.pg_delete_btn}
-                            onClick={handleDelete}
-                        >
-                            {t('label.delete')}
-                        </button>
-                    </div>
+                            size="big"
+                            color="accent"
+                            icon={<Archive/>}
+                            label={t('label.generate')}
+                            isDisabled={isLoading || noSiteSelected}
+                            aria-describedby={hintId}
+                            onClick={handleGenerate}
+                        />
+                    )}
+                    <SelectSiteHint id={hintId} isHidden={isLoading}/>
                 </div>
-            )}
+
+                <StatusBanner status={generateStatus}/>
+            </section>
+
+            <ArchivePanel
+                archiveInfo={archiveInfo}
+                isBusy={isLoading}
+                isDeleting={deleting}
+                headingRef={archiveHeadingRef}
+                onDelete={handleDelete}
+            />
         </div>
     );
 };

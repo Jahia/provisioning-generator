@@ -2,7 +2,7 @@
   "label": {
     "menu_entry": "Provisioning Generator",
     "title": "Provisioning Generator",
-    "description": "Generate a ZIP archive of all active Jahia modules, ready to be used with the provisioning API.",
+    "description": "Package this server's modules into a ZIP archive with a provisioning.yaml manifest, ready to be installed on another Jahia with the provisioning API.",
     "generate": "Generate archive",
     "generating": "Generating archive, please wait…",
     "success": "Archive generated successfully.",
@@ -13,6 +13,28 @@
     "delete": "Delete archive",
     "deleteConfirm": "Are you sure you want to delete the provisioning archive? This action cannot be undone.",
     "deleting": "Deleting archive…",
-    "createdAt": "Generated on {{date}}"
+    "createdAt": "Generated on {{date}}",
+    "scope": "Modules to export",
+    "scopeAll": "All active modules",
+    "scopeSites": "Modules used by selected sites",
+    "sites": "Sites",
+    "noSites": "No site is available on this server.",
+    "selectSite": "Select at least one site to generate the archive.",
+    "archiveScopeAll": "Contains all active modules",
+    "archiveScopeSites": "Contains the modules used by: {{sites}}",
+    "generateHeading": "Generate an archive",
+    "archiveHeading": "Current archive",
+    "scopeAllDescription": "Every module active on this server.",
+    "scopeSitesDescription": "The template set and modules of the sites you choose, with their dependencies.",
+    "includeSystemModules": "Include platform modules",
+    "includeSystemModulesDescription": "Modules of type system ship with Jahia (jcontent, graphql-dxm-provider…). Include them only if the target server runs different versions.",
+    "successTitle": "Archive ready",
+    "timeoutTitle": "Still generating",
+    "errorTitle": "Generation failed",
+    "noArchive": "No archive yet. Generate one above, it will be available for download here.",
+    "archivePlatformIncluded": "platform modules included",
+    "archivePlatformExcluded": "platform modules excluded",
+    "deleted": "Archive deleted.",
+    "deletedTitle": "Archive deleted"
   }
 }

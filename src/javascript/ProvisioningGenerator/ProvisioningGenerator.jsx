@@ -8,6 +8,19 @@ import {DELETE_PROVISIONING_ARCHIVE, GENERATE_PROVISIONING_ARCHIVE, GET_ARCHIVE_
 const DOWNLOAD_URL = '/files/default/sites/systemsite/files/provisioning-generator/provisioning-export.zip';
 const POLL_INTERVAL_MS = 2000;
 
+// Statuses (or a non-JSON body) returned by a reverse proxy that gave up waiting for Jahia
+const PROXY_TIMEOUT_STATUSES = [408, 502, 503, 504];
+
+const isProxyTimeout = err => {
+    const networkError = err && err.networkError;
+    return Boolean(networkError) &&
+        (PROXY_TIMEOUT_STATUSES.includes(networkError.statusCode) || networkError.name === 'ServerParseError');
+};
+
+const wait = ms => new Promise(resolve => {
+    setTimeout(resolve, ms);
+});
+
 const formatDate = isoString => {
     try {
         return new Intl.DateTimeFormat(undefined, {
@@ -22,6 +35,8 @@ const formatDate = isoString => {
 export const ProvisioningGeneratorAdmin = () => {
     const {t} = useTranslation('provisioning-generator');
     const [generateStatus, setGenerateStatus] = useState(null);
+    const [awaitingArchive, setAwaitingArchive] = useState(false);
+    const mountedRef = useRef(true);
     const generateBtnRef = useRef(null);
     const prevIsLoadingRef = useRef(false);
 
@@ -52,7 +67,14 @@ export const ProvisioningGeneratorAdmin = () => {
         refetchQueries: [{query: GET_ARCHIVE_INFO}]
     });
 
-    const generating = mutationGenerating || serverGenerating;
+    const generating = mutationGenerating || serverGenerating || awaitingArchive;
+
+    useEffect(() => {
+        mountedRef.current = true;
+        return () => {
+            mountedRef.current = false;
+        };
+    }, []);
     const isLoading = generating || deleting;
 
     // SC 2.4.3: return keyboard focus to Generate button when loading completes
@@ -64,18 +86,40 @@ export const ProvisioningGeneratorAdmin = () => {
         prevIsLoadingRef.current = isLoading;
     }, [isLoading]);
 
+    // The generation runs in the background on the server (async: true) so the request returns immediately
+    // and should not be cut by a reverse-proxy timeout. Completion is detected by polling isGenerating, and
+    // success by a new archive creation date. If a generation was already running, we simply wait for it.
+    // If a proxy still times out, the server keeps working: warn the user and keep polling instead of failing.
     const handleGenerate = async () => {
         setGenerateStatus(null);
+        setAwaitingArchive(true);
+        const previousCreatedAt = archiveInfo ? archiveInfo.createdAt : null;
         try {
-            const result = await generate();
-            if (result.data && result.data.provisioningGeneratorGenerate) {
-                setGenerateStatus('success');
-                refetchInfo();
-            } else {
-                setGenerateStatus('error');
+            try {
+                await generate({variables: {async: true}});
+            } catch (err) {
+                if (!isProxyTimeout(err)) {
+                    throw err;
+                }
+
+                setGenerateStatus('timeout');
             }
-        } catch (_err) {
+
+            let info = (await refetchInfo()).data;
+            while (mountedRef.current && info && info.provisioningGeneratorIsGenerating) {
+                // eslint-disable-next-line no-await-in-loop
+                await wait(POLL_INTERVAL_MS);
+                // eslint-disable-next-line no-await-in-loop
+                info = (await refetchInfo()).data;
+            }
+
+            const newArchive = info && info.provisioningGeneratorArchiveInfo;
+            setGenerateStatus(newArchive && newArchive.createdAt !== previousCreatedAt ? 'success' : 'error');
+        } catch {
             setGenerateStatus('error');
+            refetchInfo().catch(() => {});
+        } finally {
+            setAwaitingArchive(false);
         }
     };
 
@@ -96,10 +140,11 @@ export const ProvisioningGeneratorAdmin = () => {
     return (
         <div className={styles.pg_container}>
             {/* SC 4.1.3: two fixed-role live regions always in DOM — AT registers roles at mount.
-                Polite region: success + loading states. Assertive region: errors only.
+                Polite region: success, proxy-timeout warning and loading states. Assertive region: errors only.
                 Visible alert divs below are aria-hidden; live regions are the sole AT announcement path. */}
             <div role="status" aria-live="polite" aria-atomic="true" className={styles.pg_sr_only}>
                 {generateStatus === 'success' ? t('label.success') :
+                    generateStatus === 'timeout' ? t('label.timeout') :
                     generating ? t('label.generating') :
                     deleting ? t('label.deleting') : ''}
             </div>
@@ -120,6 +165,11 @@ export const ProvisioningGeneratorAdmin = () => {
             {generateStatus === 'success' && (
                 <div aria-hidden="true" className={`${styles.pg_alert} ${styles['pg_alert--success']}`}>
                     {t('label.success')}
+                </div>
+            )}
+            {generateStatus === 'timeout' && (
+                <div aria-hidden="true" className={`${styles.pg_alert} ${styles['pg_alert--warning']}`}>
+                    {t('label.timeout')}
                 </div>
             )}
             {generateStatus === 'error' && (

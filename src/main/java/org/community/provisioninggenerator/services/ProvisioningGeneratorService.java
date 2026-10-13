@@ -11,7 +11,9 @@ import org.jahia.data.templates.JahiaTemplatesPackage;
 import org.jahia.osgi.BundleUtils;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
+import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Deactivate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.StreamUtils;
@@ -26,6 +28,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -39,37 +45,124 @@ public class ProvisioningGeneratorService {
     private static final String EXPORT_FILE_SUFFIX = ".zip";
     private static final String MANIFEST_ENTRY_NAME = "provisioning.yaml";
 
-    private volatile boolean generating = false;
+    private final AtomicBoolean generating = new AtomicBoolean(false);
+    private ExecutorService executor;
 
-    public boolean isGenerating() {
-        return generating;
+    /**
+     * Callback receiving the generated archive while the generation lock is still held.
+     */
+    @FunctionalInterface
+    public interface ArchiveHandler {
+        void handle(File archive) throws RepositoryException;
     }
 
+    @Activate
+    protected void activate() {
+        executor = Executors.newSingleThreadExecutor(runnable -> {
+            final Thread thread = new Thread(runnable, "provisioning-generator");
+            thread.setDaemon(true);
+            return thread;
+        });
+    }
+
+    @Deactivate
+    protected void deactivate() {
+        if (executor != null) {
+            executor.shutdownNow();
+        }
+    }
+
+    public boolean isGenerating() {
+        return generating.get();
+    }
+
+    /**
+     * Generates the archive in the temp folder and returns it.
+     *
+     * @throws IllegalStateException if a generation is already in progress
+     */
     public File generate(String tmpContentDiskPath) throws RepositoryException {
+        validate(tmpContentDiskPath);
+        acquire();
+        try {
+            return createArchive(tmpContentDiskPath);
+        } finally {
+            generating.set(false);
+        }
+    }
+
+    /**
+     * Generates the archive and passes it to {@code handler}; {@link #isGenerating()} stays true until the handler returns.
+     *
+     * @throws IllegalStateException if a generation is already in progress
+     */
+    public void generate(String tmpContentDiskPath, ArchiveHandler handler) throws RepositoryException {
+        validate(tmpContentDiskPath);
+        acquire();
+        try {
+            handler.handle(createArchive(tmpContentDiskPath));
+        } finally {
+            generating.set(false);
+        }
+    }
+
+    /**
+     * Starts the generation in a background thread and returns immediately, so the caller does not depend on
+     * HTTP/proxy timeouts. {@link #isGenerating()} stays true until the handler returns.
+     *
+     * @return false if a generation is already in progress
+     */
+    public boolean generateAsync(String tmpContentDiskPath, ArchiveHandler handler) {
+        validate(tmpContentDiskPath);
+        if (!generating.compareAndSet(false, true)) {
+            return false;
+        }
+        try {
+            executor.execute(() -> {
+                try {
+                    handler.handle(createArchive(tmpContentDiskPath));
+                } catch (Exception e) {
+                    logger.error("Error generating provisioning archive", e);
+                } finally {
+                    generating.set(false);
+                }
+            });
+        } catch (RejectedExecutionException e) {
+            generating.set(false);
+            throw e;
+        }
+        return true;
+    }
+
+    private static void validate(String tmpContentDiskPath) {
         if (tmpContentDiskPath == null || tmpContentDiskPath.trim().isEmpty()) {
             throw new IllegalArgumentException("tmpContentDiskPath must not be null or blank");
         }
-        generating = true;
-        try {
-            final String filename = tmpContentDiskPath + EXPORT_FILE_PREFIX + System.currentTimeMillis() + EXPORT_FILE_SUFFIX;
-            final File file = new File(filename);
-            BundleUtils.getOsgiService(JCRTemplate.class, null).doExecuteWithSystemSessionAsUser(
-                    null, Constants.EDIT_WORKSPACE, null, session -> {
-                        try {
-                            if (file.createNewFile()) {
-                                writeZip(file, filename, session);
-                            } else {
-                                throw new IOException("Impossible to create file " + filename);
-                            }
-                        } catch (IOException e) {
-                            throw new RepositoryException("Error when creating zip", e);
-                        }
-                        return null;
-                    });
-            return file;
-        } finally {
-            generating = false;
+    }
+
+    private void acquire() {
+        if (!generating.compareAndSet(false, true)) {
+            throw new IllegalStateException("A provisioning archive is already being generated");
         }
+    }
+
+    protected File createArchive(String tmpContentDiskPath) throws RepositoryException {
+        final String filename = tmpContentDiskPath + EXPORT_FILE_PREFIX + System.currentTimeMillis() + EXPORT_FILE_SUFFIX;
+        final File file = new File(filename);
+        BundleUtils.getOsgiService(JCRTemplate.class, null).doExecuteWithSystemSessionAsUser(
+                null, Constants.EDIT_WORKSPACE, null, session -> {
+                    try {
+                        if (file.createNewFile()) {
+                            writeZip(file, filename, session);
+                        } else {
+                            throw new IOException("Impossible to create file " + filename);
+                        }
+                    } catch (IOException e) {
+                        throw new RepositoryException("Error when creating zip", e);
+                    }
+                    return null;
+                });
+        return file;
     }
 
     private void writeZip(File file, String filename, JCRSessionWrapper session) throws IOException {

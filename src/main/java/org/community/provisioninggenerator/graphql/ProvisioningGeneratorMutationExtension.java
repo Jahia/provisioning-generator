@@ -36,9 +36,13 @@ public class ProvisioningGeneratorMutationExtension {
 
     @GraphQLField
     @GraphQLName("provisioningGeneratorGenerate")
-    @GraphQLDescription("Generates a provisioning ZIP archive of all active Jahia modules and stores it in JCR")
+    @GraphQLDescription("Generates a provisioning ZIP archive of all active Jahia modules and stores it in JCR."
+            + " With async=true, starts the generation in the background and returns immediately"
+            + " (poll provisioningGeneratorIsGenerating); returns false if a generation is already in progress.")
     @GraphQLRequiresPermission("provisioningGeneratorAdmin")
-    public static Boolean generate() {
+    public static Boolean generate(@GraphQLName("async")
+                                   @GraphQLDescription("Run the generation in the background (default: false)")
+                                   Boolean async) {
         final SettingsBean settingsBean = BundleUtils.getOsgiService(SettingsBean.class, null);
         final ProvisioningGeneratorService service = BundleUtils.getOsgiService(ProvisioningGeneratorService.class, null);
 
@@ -47,22 +51,23 @@ public class ProvisioningGeneratorMutationExtension {
             return Boolean.FALSE;
         }
 
-        File zipFile = null;
         try {
-            zipFile = service.generate(settingsBean.getTmpContentDiskPath());
-            writeToJcr(zipFile);
+            if (Boolean.TRUE.equals(async)) {
+                final boolean started = service.generateAsync(settingsBean.getTmpContentDiskPath(),
+                        ProvisioningGeneratorMutationExtension::storeArchive);
+                if (!started) {
+                    LOGGER.warn("A provisioning archive is already being generated");
+                }
+                return started;
+            }
+            service.generate(settingsBean.getTmpContentDiskPath(), ProvisioningGeneratorMutationExtension::storeArchive);
             return Boolean.TRUE;
+        } catch (IllegalStateException e) {
+            LOGGER.warn(e.getMessage());
+            return Boolean.FALSE;
         } catch (RepositoryException e) {
             LOGGER.error("Error generating provisioning archive", e);
             return Boolean.FALSE;
-        } finally {
-            if (zipFile != null && zipFile.exists()) {
-                try {
-                    Files.delete(zipFile.toPath());
-                } catch (IOException e) {
-                    LOGGER.warn("Could not delete temporary zip file: {}", zipFile.getAbsolutePath(), e);
-                }
-            }
         }
     }
 
@@ -89,6 +94,20 @@ public class ProvisioningGeneratorMutationExtension {
         } catch (RepositoryException e) {
             LOGGER.error("Error deleting provisioning archive", e);
             return Boolean.FALSE;
+        }
+    }
+
+    private static void storeArchive(File zipFile) throws RepositoryException {
+        try {
+            writeToJcr(zipFile);
+        } finally {
+            if (zipFile.exists()) {
+                try {
+                    Files.delete(zipFile.toPath());
+                } catch (IOException e) {
+                    LOGGER.warn("Could not delete temporary zip file: {}", zipFile.getAbsolutePath(), e);
+                }
+            }
         }
     }
 

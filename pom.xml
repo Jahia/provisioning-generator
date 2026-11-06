@@ -85,7 +85,7 @@
         <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
-            <version>3.25.3</version>
+            <version>3.27.7</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -104,7 +104,7 @@
                             <goal>install-node-and-yarn</goal>
                         </goals>
                         <configuration>
-                            <nodeVersion>v22.6.0</nodeVersion>
+                            <nodeVersion>v22.20.0</nodeVersion>
                             <yarnVersion>v1.22.21</yarnVersion>
                         </configuration>
                     </execution>

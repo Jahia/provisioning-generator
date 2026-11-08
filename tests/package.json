@@ -91,6 +91,10 @@
     "nyc/glob": "^14.0.3",
     "**/nyc/glob": "^14.0.3",
     "cacache/glob": "^14.0.3",
-    "**/cacache/glob": "^14.0.3"
+    "**/cacache/glob": "^14.0.3",
+    "mochawesome-merge/glob": "^14.0.3",
+    "**/mochawesome-merge/glob": "^14.0.3",
+    "@typescript-eslint/typescript-estree/minimatch": "^11.0.5",
+    "**/@typescript-eslint/typescript-estree/minimatch": "^11.0.5"
   }
 }

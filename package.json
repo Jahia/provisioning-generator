@@ -68,7 +68,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "file-loader": "^6.2.0",
     "rimraf": "^6.1.4",
-    "sass": "^1.107.1",
+    "sass": "^1.108.1",
     "sass-loader": "^17.1.0",
     "style-loader": "^4.0.0",
     "sync-pom-version-to-package": "^1.6.1",
